@@ -447,6 +447,34 @@ class PlayerManager {
                 this.loadingMid = null;
             }
         }
+
+        // Prefetch next song lyrics (fire and forget)
+        this.prefetchNextSong();
+    }
+
+    async prefetchNextSong() {
+        if (this.queue.length <= 1) return;
+
+        let nextIndex;
+        if (this.playMode === 'shuffle') {
+            nextIndex = (this.currentIndex + 1) % this.queue.length;
+        } else {
+            nextIndex = (this.currentIndex + 1) % this.queue.length;
+        }
+
+        const nextSong = this.queue[nextIndex];
+        if (nextSong && nextSong.mid && !this.lyricsCache.has(nextSong.mid)) {
+            try {
+                // Background fetch
+                getLyric(nextSong.mid).then(lyrics => {
+                    if (lyrics && (lyrics.lyric || lyrics.trans || lyrics.roma)) {
+                        this.lyricsCache.set(nextSong.mid, lyrics);
+                    }
+                });
+            } catch (e) {
+                // Ignore prefetch errors
+            }
+        }
     }
 
     async loadLyrics(mid) {

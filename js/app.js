@@ -401,6 +401,9 @@ class PlayerManager {
         try {
             this.ui.updateSongInfo(song);
 
+            // Start loading lyrics immediately (in parallel with audio URL fetch)
+            this.loadLyrics(song.mid);
+
             // Get playURL
             const preferFlac = document.getElementById('quality-value')?.value === 'flac';
             const result = await getSongUrlWithFallback(song.mid, preferFlac);
@@ -430,10 +433,7 @@ class PlayerManager {
                 throw playError;
             }
 
-            // Load lyrics (only if we are still playing this song)
-            if (this.loadingMid === song.mid) {
-                this.loadLyrics(song.mid);
-            }
+            // Lyrics loaded in parallel above
 
         } catch (error) {
             console.error('Play song failed:', error);

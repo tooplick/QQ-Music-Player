@@ -477,7 +477,7 @@ class PlayerManager {
         }
     }
 
-    async loadLyrics(mid) {
+    async loadLyrics(mid, retryCount = 0) {
         try {
             if (this.lyricsCache.has(mid)) {
                 this.ui.renderLyrics(this.lyricsCache.get(mid));
@@ -485,19 +485,32 @@ class PlayerManager {
             }
 
             const lyrics = await getLyric(mid);
+
+            // Check if valid result
+            if (!lyrics || (!lyrics.lyric && !lyrics.trans && !lyrics.roma)) {
+                // If failed and first try, retry once
+                if (retryCount < 1) {
+                    console.warn('Lyrics empty, retrying once...');
+                    setTimeout(() => this.loadLyrics(mid, retryCount + 1), 1000);
+                    return;
+                }
+            }
+
             // Check if we are still playing the song we requested lyrics for
             // We use currentIndex to check strictly, or just check recent request
             this.lyricsCache.set(mid, lyrics);
 
             // Only render if currently playing/loading this URL
-            // (Simpler check: just render, user might have switched but seeing lyrics is ok-ish,
-            // but better to check)
             if (this.ui.els.titleMini && this.ui.els.titleMini.textContent) {
                 // Optimization: Could check if current song matches mid
                 this.ui.renderLyrics(lyrics);
             }
         } catch (error) {
             console.error('Load lyrics failed:', error);
+            if (retryCount < 1) {
+                console.log('Retrying load lyrics...');
+                setTimeout(() => this.loadLyrics(mid, retryCount + 1), 1500);
+            }
         }
     }
 

@@ -492,10 +492,11 @@ class PlayerManager {
         }
     }
 
-    async fetchLyrics(mid, retryCount = 0) {
+    async loadLyrics(mid, retryCount = 0) {
         try {
             if (this.lyricsCache.has(mid)) {
-                return this.lyricsCache.get(mid);
+                this.ui.renderLyrics(this.lyricsCache.get(mid));
+                return;
             }
 
             const lyrics = await getLyric(mid);
@@ -506,23 +507,27 @@ class PlayerManager {
                 if (retryCount < 3) {
                     const delay = (retryCount + 1) * 1000;
                     console.warn(`Lyrics empty, retrying (${retryCount + 1}/3) in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return this.fetchLyrics(mid, retryCount + 1);
+                    setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
+                    return;
                 }
             }
 
+            // Check if we are still playing the song we requested lyrics for
+            // We use currentIndex to check strictly, or just check recent request
             this.lyricsCache.set(mid, lyrics);
-            return lyrics;
 
+            // Only render if currently playing/loading this URL
+            if (this.ui.els.titleMini && this.ui.els.titleMini.textContent) {
+                // Optimization: Could check if current song matches mid
+                this.ui.renderLyrics(lyrics);
+            }
         } catch (error) {
             console.error('Load lyrics failed:', error);
             if (retryCount < 3) {
                 const delay = (retryCount + 1) * 1000;
                 console.log(`Retrying load lyrics error (${retryCount + 1}/3) in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return this.fetchLyrics(mid, retryCount + 1);
+                setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
             }
-            return null;
         }
     }
 

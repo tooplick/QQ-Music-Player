@@ -3,6 +3,7 @@
  */
 
 import { qrc_decrypt } from '../utils/tripledes.js';
+import { apiRequest } from './request.js';
 
 // ... (retain decryptLyric function if needed, but we rely on qrc_decrypt)
 

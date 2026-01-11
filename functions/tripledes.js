@@ -410,13 +410,64 @@ function tripledes_key_setup(key, mode) {
     ];
 }
 
-function tripledes_crypt(data, key) {
-    // data is Uint8Array(8)
-    let res = data;
-    for (let i = 0; i < 3; i++) {
-        res = crypt(res, key[i]);
+// 16 rounds of DES
+function des_rounds(s0, s1, key_schedule) {
+    // Unrolling or loop? Loop is fine for JS JIT.
+    // Rounds 1-15
+    for (let idx = 0; idx < 15; idx++) {
+        const previous_s1 = s1;
+        // s1 becomes R_i, s0 becomes L_i
+        // But logic is: s1_new = s0 ^ f(s1, k)
+        // s0_new = s1_old
+        // So s0 holds previous R (which is L_next)
+        // s1 holds new R
+
+        // Code in original f func:
+        // s1 (new R) = f(s1 (old R), k) ^ s0 (old L)
+        // s0 (new L) = previous_s1 (old R)
+        s1 = (f(s1, key_schedule[idx]) ^ s0) >>> 0;
+        s0 = previous_s1;
     }
-    return res;
+    // Round 16 (No swap)
+    // s0 = f(s1, k) ^ s0
+    // s0 becomes R16, s1 remains R15 (which is L16)
+    s0 = (f(s1, key_schedule[15]) ^ s0) >>> 0;
+
+    return [s0, s1];
+}
+
+function tripledes_crypt_optimized(data_offset, input_arr, output_arr, output_offset, keys) {
+    // data_offset: index in input_arr
+    // Read 8 bytes from input_arr at data_offset
+    // We assume input_arr has enough data.
+
+    // Initial Permutation (Byte -> Ints)
+    // Inline initial_permutation logic to read directly from array without slice
+    // Or just construct a temporary small array.
+    // Let's use a helper that takes the slice source.
+
+    // Optimization: Create a "view" or just pass values?
+    // initial_permutation takes Uint8Array.
+    // Let's modify initial_permutation to take (arr, offset) or just slice it cheaply?
+    // Slicing is ok if it's TypedArray.subarray (view) not slice (copy).
+    // input_arr.subarray(data_offset, data_offset + 8) creates a view.
+    const chunk = input_arr.subarray(data_offset, data_offset + 8);
+
+    let [s0, s1] = initial_permutation(chunk);
+
+    // Round 1
+    [s0, s1] = des_rounds(s0, s1, keys[0]);
+    // Round 2
+    [s0, s1] = des_rounds(s0, s1, keys[1]);
+    // Round 3
+    [s0, s1] = des_rounds(s0, s1, keys[2]);
+
+    // Inverse Permutation (Ints -> Byte write)
+    // Modified inverse_permutation to return values or write to output?
+    // Let's keep it returning Uint8Array(8) for now, then copy.
+    // Or inline inverse_permutation write logic.
+    const res = inverse_permutation(s0, s1);
+    output_arr.set(res, output_offset);
 }
 
 // Zlib implementation for browser/worker environment (pako is too heavy, simple inflate needed)
@@ -479,31 +530,24 @@ export async function qrc_decrypt(encrypted_qrc_hex) {
     try {
         const encrypted_qrc = new Uint8Array(encrypted_qrc_hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 
-        let data = new Uint8Array(0);
+        // Prepare Output Buffer
+        const result = new Uint8Array(encrypted_qrc.length);
+
         const keyBytes = new TextEncoder().encode("!@#)(*$%123ZXC!@!@#)(NHL");
         const schedule = tripledes_key_setup(keyBytes, DECRYPT);
 
-        // Pre-calculate full size to avoid repeated allocations
-        const decryptedChunks = [];
-        let totalLen = 0;
+        // Process in 8-byte chunks
+        // Limit total length to multiple of 8 to avoid bounds error
+        const len = encrypted_qrc.length - (encrypted_qrc.length % 8);
 
-        for (let i = 0; i < encrypted_qrc.length; i += 8) {
-            const chunk = encrypted_qrc.slice(i, i + 8);
-            if (chunk.length < 8) break; // Should be multiple of 8
-            const decrypted = tripledes_crypt(chunk, schedule);
-            decryptedChunks.push(decrypted);
-            totalLen += decrypted.length;
-        }
-
-        const combined = new Uint8Array(totalLen);
-        let offset = 0;
-        for (const chunk of decryptedChunks) {
-            combined.set(chunk, offset);
-            offset += chunk.length;
+        for (let i = 0; i < len; i += 8) {
+            tripledes_crypt_optimized(i, encrypted_qrc, result, i, schedule);
         }
 
         // Decompress (zlib)
-        return await decompress(combined);
+        // Note: result might have padding? DES typically pads.
+        // But for Zlib we usually just feed it all.
+        return await decompress(result);
 
     } catch (e) {
         console.error(`Decryption failed: ${e}`);

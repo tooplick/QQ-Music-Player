@@ -490,8 +490,89 @@ export async function qrc_decrypt(encrypted_qrc_hex) {
             offset += chunk.length;
         }
 
-        // Decompress (zlib)
-        return await decompress(combined);
+        // PKCS7 Unpadding
+        // Look at the last byte
+        if (combined.length > 0) {
+            const lastByte = combined[combined.length - 1];
+            // Padding value must be between 1 and 8 (block size)
+            if (lastByte > 0 && lastByte <= 8) {
+                let isValidPadding = true;
+                for (let i = 0; i < lastByte; i++) {
+                    if (combined[combined.length - 1 - i] !== lastByte) {
+                        isValidPadding = false;
+                        break;
+                    }
+                }
+                if (isValidPadding) {
+                    // console.log(`Stripping ${lastByte} bytes of padding`);
+                    // We can return a slice (view) or new array. Slice for safety.
+                    // But 'combined' is used for decompression.
+                    // We need to slice it.
+                    // Note: combined.subarray returns a view, combined.slice returns a copy.
+                    // decompress needs data.
+                }
+            }
+        }
+
+        // Actually, Python's zlib.decompress auto-ignores trailing garbage (padding).
+        // JS DecompressionStream with 'deflate' expects RAW deflate stream.
+        // It does NOT like Zlib header (2B) or Checksum (4B) or Padding.
+
+        // Strategy:
+        // 1. Try removing PKCS7 padding first.
+        // 2. Try removing Zlib header (2 bytes).
+        // 3. Try removing Zlib checksum (4 bytes).
+
+        // Let's create a robust trial list
+
+        const tryDecryptWithData = async (data) => {
+            // 1. Try stripping header (2) and checksum (4) - Most likely for Zlib -> Raw Deflate
+            if (data.length > 6) {
+                try {
+                    return await decompress(data.slice(2, -4));
+                } catch (e) { }
+            }
+
+            // 2. Try stripping header (2) only (if no checksum?)
+            if (data.length > 2) {
+                try {
+                    return await decompress(data.slice(2));
+                } catch (e) { }
+            }
+
+            // 3. Raw (if it was already raw?)
+            try {
+                return await decompress(data);
+            } catch (e) { }
+
+            return "";
+        };
+
+        // Try with unpadded data
+        let payload = combined;
+        if (combined.length > 0) {
+            const pad = combined[combined.length - 1];
+            if (pad > 0 && pad <= 8) {
+                // Verify padding
+                let isPad = true;
+                for (let i = 0; i < pad; i++) {
+                    if (combined[combined.length - 1 - i] !== pad) isPad = false;
+                }
+                if (isPad) {
+                    payload = combined.slice(0, -pad);
+                }
+            }
+        }
+
+        const res = await tryDecryptWithData(payload);
+        if (res) return res;
+
+        // Fallback: maybe padding check was false positive or not needed? Try original
+        if (payload.length !== combined.length) {
+            return await tryDecryptWithData(combined);
+        }
+
+        return "";
 
     } catch (e) {
         console.error(`Frontend Decryption failed: ${e}`);

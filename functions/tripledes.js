@@ -455,19 +455,26 @@ async function decompress(data) {
     };
 
     try {
-        // First try as is (in case implementation supports zlib wrapped)
+        // 1. Try raw (maybe it's raw deflate)
         return await tryDecompress(data);
     } catch (e) {
-        // If failed, try stripping 2-byte zlib header (usually 0x78 0x9C, 0x78 0x01, or 0x78 0xDA)
-        // Zlib header is 2 bytes.
+        // 2. Try stripping zlib header (2 bytes)
         if (data.length > 2) {
             try {
                 return await tryDecompress(data.slice(2));
             } catch (e2) {
-                console.error('Decompression failed (raw & stripped):', e2);
-                return '';
+                // 3. Try stripping zlib header (2 bytes) AND checksum (4 bytes)
+                if (data.length > 6) {
+                    try {
+                        return await tryDecompress(data.slice(2, -4));
+                    } catch (e3) {
+                        // console.error('Decompression failed (stripped header+checksum):', e3);
+                    }
+                }
             }
         }
+
+        console.error('All decompression attempts failed');
         return '';
     }
 }

@@ -88,7 +88,6 @@ export async function onRequest(context) {
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type, X-Proxy-Cookie",
-                "X-Decrypt-Status": "Attempted" // Debug header
             },
         });
 

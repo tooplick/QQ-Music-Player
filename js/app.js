@@ -337,6 +337,21 @@ class PlayerManager {
 
         this.loadFromStorage();
         this.initAudio();
+
+        // Debounce playSong to prevent lag during rapid switching
+        this.playSongDebounced = this.debounce(this.playSong.bind(this), 300);
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 
     loadFromStorage() {
@@ -564,8 +579,14 @@ class PlayerManager {
         this.currentIndex = index;
         // 保存当前索引
         localStorage.setItem('qqmusic_currentIndex', index.toString());
-        this.playSong(this.queue[index]);
+
+        // Immediate UI update for responsiveness
+        const song = this.queue[index];
+        this.ui.updateSongInfo(song);
         this.ui.renderPlaylist(this.queue, this.currentIndex);
+
+        // Debounced network request and playback
+        this.playSongDebounced(song);
     }
 
     removeFromQueue(index) {

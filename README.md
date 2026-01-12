@@ -78,6 +78,8 @@ wrangler pages dev .
 所有对 `u.y.qq.com` 和 `c.y.qq.com` 的请求都通过 `/functions/api/index.js` 转发，自动处理 CORS 头和 Cookie 转发。
 
 ## 版本历史
+### v1.0.1优化
+ - 已修复：手机端返回键直接退出问题
 
 ### v1.0.0 - Legacy
  - 初始版本

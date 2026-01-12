@@ -75,6 +75,7 @@ class UIManager {
         this.currentLyrics = [];
         this.lastHighlightIdx = -1;
         this.userScrolling = false;
+        this.drawerOpen = false; // 追踪抽屉打开状态
 
         this.setupLyricsScrollListener();
     }
@@ -308,13 +309,25 @@ class UIManager {
         }
         this.els.drawerOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
+        this.drawerOpen = true;
+
+        // 添加历史记录，使手机端返回键能关闭抽屉
+        history.pushState({ drawer: type }, '');
     }
 
-    closeDrawer() {
+    closeDrawer(fromPopState = false) {
+        if (!this.drawerOpen) return;
+
         this.els.searchDrawer.classList.remove('open');
         this.els.playlistDrawer.classList.remove('open');
         this.els.drawerOverlay.classList.remove('show');
         document.body.style.overflow = '';
+        this.drawerOpen = false;
+
+        // 如果不是由 popstate 触发的关闭（例如点击关闭按钮），则返回历史记录
+        if (!fromPopState && history.state?.drawer) {
+            history.back();
+        }
     }
 
     toggleView() {
@@ -874,6 +887,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('close-drawer').onclick = () => ui.closeDrawer();
     document.getElementById('close-playlist').onclick = () => ui.closeDrawer();
     ui.els.drawerOverlay.onclick = () => ui.closeDrawer();
+
+    // 监听手机端返回键（popstate 事件）
+    window.addEventListener('popstate', (event) => {
+        if (ui.drawerOpen) {
+            ui.closeDrawer(true); // true 表示由 popstate 触发
+        }
+    });
 
     // Search
     const searchInput = document.getElementById('search-input');

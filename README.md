@@ -6,8 +6,7 @@ QQ 音乐 Web 播放器的现代重构版本，专为 **Cloudflare Pages** 打�
 
 - ✅ **纯前端架构**：静态资源托管在 Cloudflare Pages
 - ✅ **Serverless 后端**：使用 Cloudflare Functions 处理 API 代理和请求签名
-- ✅ **D1 凭证存储**：凭证安全存储在 Cloudflare D1 数据库
-- ✅ **自动刷新**：Cron 定时任务自动刷新即将过期的凭证
+- ✅ **D1 凭证存储**：凭证存储在 Cloudflare D1 数据库
 - ✅ **智能预加载**：自动预取下一首歌曲歌词，零延迟切换
 - ✅ **隐私安全**：通过 Cloudflare 代理请求，隐藏真实 IP
 - ✅ **PWA 支持**：Service Worker 离线缓存
@@ -100,10 +99,8 @@ wrangler pages dev .
 
 ## 版本历史
 
-### v1.1.0
+### v1.0.2
 - 新增 D1 数据库凭证存储
-- 新增 Cron 自动刷新凭证
-- 移除 admin.html 管理页面
 
 ### v1.0.1
 - 修复手机端返回键直接退出问题

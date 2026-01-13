@@ -3,8 +3,6 @@
  * 每小时执行一次，检查凭证是否即将过期，自动刷新
  */
 
-import { encryptParams, decryptParams } from "../tripledes.js";
-
 // QQ 音乐 API 配置
 const API_CONFIG = {
     version: "13.2.5.8",
@@ -13,11 +11,40 @@ const API_CONFIG = {
 };
 
 /**
+ * SHA1 哈希 (Web Crypto API)
+ */
+async function sha1(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+/**
  * 生成请求签名
  */
-function generateSign(data) {
-    const str = JSON.stringify(data);
-    return encryptParams(str);
+async function generateSign(requestData) {
+    const jsonStr = JSON.stringify(requestData);
+    const hash = await sha1(jsonStr);
+
+    const part1Indexes = [23, 14, 6, 36, 16, 40, 7, 19].filter(x => x < 40);
+    const part1 = part1Indexes.map(i => hash[i] || '').join('');
+
+    const part2Indexes = [16, 1, 32, 12, 19, 27, 8, 5];
+    const part2 = part2Indexes.map(i => hash[i] || '').join('');
+
+    const scrambleValues = [89, 39, 179, 150, 218, 82, 58, 252, 177, 52, 186, 123, 120, 64, 242, 133, 143, 161, 121, 179];
+    const part3Bytes = new Uint8Array(20);
+    for (let i = 0; i < scrambleValues.length; i++) {
+        const hexValue = parseInt(hash.slice(i * 2, i * 2 + 2), 16);
+        part3Bytes[i] = scrambleValues[i] ^ hexValue;
+    }
+
+    let b64Part = btoa(String.fromCharCode(...part3Bytes));
+    b64Part = b64Part.replace(/[\\/+=]/g, '');
+
+    return `zzc${part1}${b64Part}${part2}`.toLowerCase();
 }
 
 /**
@@ -77,7 +104,7 @@ async function refreshCredential(credential) {
         },
     };
 
-    const signature = generateSign(requestData);
+    const signature = await generateSign(requestData);
     const url = `${API_CONFIG.endpoint}?sign=${signature}`;
 
     const response = await fetch(url, {
@@ -199,7 +226,6 @@ export async function onRequest(context) {
     }
 
     try {
-        // 调用 Cron 逻辑
         await onSchedule(context);
 
         return new Response(JSON.stringify({ success: true, message: "刷新完成" }), {

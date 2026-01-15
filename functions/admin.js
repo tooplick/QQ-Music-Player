@@ -179,13 +179,26 @@ export async function onRequest(context) {
         // 1. 自动尝试从外部 API 获取凭证
         if (env.EXTERNAL_API_URL) {
             try {
-                console.log(`[Admin] Fetching credential from ${env.EXTERNAL_API_URL}`);
-                const resp = await fetch(env.EXTERNAL_API_URL);
+                // 处理 URL 尾部斜杠并拼接 /api/credential
+                const baseUrl = env.EXTERNAL_API_URL.endsWith('/')
+                    ? env.EXTERNAL_API_URL.slice(0, -1)
+                    : env.EXTERNAL_API_URL;
+                // 强制拼接 /api/credential，因为根路径通常是主页 HTML
+                const targetUrl = `${baseUrl}/api/credential`;
+
+                console.log(`[Admin] Fetching credential from ${targetUrl}`);
+                const resp = await fetch(targetUrl);
+
                 if (resp.ok) {
                     const jsonData = await resp.json();
 
-                    // 尝试解析数据
-                    const credential = parseCredential(jsonData);
+                    // 尝试解析数据 - 检查是否有 nested credential 字段 (API 通常返回 { code: 0, data: {...} } 或直接对象)
+                    // 根据 qq-music-api 的实现，/api/credential 通常返回直接的凭证对象或 { data: credential }
+                    let credentialData = jsonData;
+                    if (jsonData.data) credentialData = jsonData.data;
+                    if (jsonData.credential) credentialData = jsonData.credential;
+
+                    const credential = parseCredential(credentialData);
 
                     if (credential && credential.musickey) {
                         await saveCredentialToDB(env.DB, credential);
@@ -196,6 +209,10 @@ export async function onRequest(context) {
                     }
                 } else {
                     externalFetchStatus = `❌ 外部 API 请求失败: ${resp.status} ${resp.statusText}`;
+                    try {
+                        const t = await resp.text();
+                        console.error("[Admin] Error body:", t);
+                    } catch (e) { }
                 }
             } catch (e) {
                 console.error("[Admin] Fetch error:", e);

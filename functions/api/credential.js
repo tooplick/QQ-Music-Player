@@ -5,51 +5,9 @@
  */
 
 /**
- * 解析初始凭证（从环境变量）
+ * 确保表存在
  */
-function parseInitialCredential(envValue) {
-    if (!envValue) return null;
-
-    try {
-        const data = JSON.parse(envValue);
-
-        // 解析 extra_fields
-        let extraFields = {};
-        if (typeof data.extra_fields === "string") {
-            try {
-                extraFields = JSON.parse(data.extra_fields.replace(/'/g, '"'));
-            } catch (e) {
-                console.warn("解析 extra_fields 失败:", e);
-            }
-        } else if (typeof data.extra_fields === "object") {
-            extraFields = data.extra_fields;
-        }
-
-        return {
-            openid: data.openid || "",
-            refresh_token: data.refresh_token || "",
-            access_token: data.access_token || "",
-            expired_at: parseInt(data.expired_at) || 0,
-            musicid: String(data.musicid || ""),
-            musickey: data.musickey || "",
-            unionid: data.unionid || "",
-            str_musicid: data.str_musicid || "",
-            refresh_key: data.refresh_key || "",
-            encrypt_uin: data.encrypt_uin || "",
-            login_type: parseInt(data.login_type) || 2,
-            musickey_createtime: extraFields.musickeyCreateTime || 0,
-            key_expires_in: extraFields.keyExpiresIn || 259200,
-        };
-    } catch (e) {
-        console.error("解析 INITIAL_CREDENTIAL 失败:", e);
-        return null;
-    }
-}
-
-/**
- * 确保表存在并初始化凭证
- */
-async function ensureCredential(db, initialCredential) {
+async function ensureCredential(db) {
     // 创建表
     await db.prepare(`
         CREATE TABLE IF NOT EXISTS credentials (
@@ -71,29 +29,6 @@ async function ensureCredential(db, initialCredential) {
             CHECK (id = 1)
         )
     `).run();
-
-    // 检查是否有凭证
-    const existing = await db.prepare("SELECT id FROM credentials WHERE id = 1").first();
-
-    if (!existing && initialCredential) {
-        // 从环境变量导入初始凭证
-        const now = Math.floor(Date.now() / 1000);
-        const c = initialCredential;
-
-        await db.prepare(`
-            INSERT INTO credentials (
-                id, openid, refresh_token, access_token, expired_at,
-                musicid, musickey, unionid, str_musicid, refresh_key,
-                encrypt_uin, login_type, musickey_createtime, key_expires_in, updated_at
-            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-            c.openid, c.refresh_token, c.access_token, c.expired_at,
-            c.musicid, c.musickey, c.unionid, c.str_musicid, c.refresh_key,
-            c.encrypt_uin, c.login_type, c.musickey_createtime, c.key_expires_in, now
-        ).run();
-
-        console.log("初始凭证已从环境变量导入");
-    }
 }
 
 export async function onRequest(context) {
@@ -118,11 +53,8 @@ export async function onRequest(context) {
     }
 
     try {
-        // 解析环境变量中的初始凭证
-        const initialCredential = parseInitialCredential(env.INITIAL_CREDENTIAL);
-
-        // 确保表和凭证存在
-        await ensureCredential(env.DB, initialCredential);
+        // 确保表存在
+        await ensureCredential(env.DB);
 
         // 读取凭证
         const result = await env.DB.prepare(
@@ -131,10 +63,10 @@ export async function onRequest(context) {
 
         if (!result) {
             return new Response(JSON.stringify({
-                error: "No credential found. Please configure INITIAL_CREDENTIAL in wrangler.toml",
+                error: "No credential found.",
                 credential: null
             }), {
-                status: 404,
+                status: 404, // Not Found
                 headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
             });
         }

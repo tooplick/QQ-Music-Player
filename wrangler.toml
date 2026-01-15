@@ -13,19 +13,4 @@ crons = ["0 * * * *"]
 
 # 初始凭证配置（从 cookie.json 复制）
 [vars]
-INITIAL_CREDENTIAL = '''
-{
-    "openid": "42AE3A348004B73125D733A21B11EE23",
-    "refresh_token": "38D5F9F900...",
-    "access_token": "6A303FEB150395D49BF82D8221755E0D",
-    "expired_at": "1773485562",
-    "musicid": "896389745",
-    "musickey": "Q_H_L_63k3NqDeK_M65NBV7Rat0fOCZrVI2vyIgJWYoyFqff49f9kEYQ8o_cUUFXnqB8gwBarwIrA60im5OsW7wdYnG5BXeOniO6rvzidU2C7y33XsLwYDpYJM1w96spwxJWa3dIiMaVM2EAN9NrXymBjpv6g17",
-    "unionid": "50FEDA9CDFC6BAF0B6F7A987D89F346F",
-    "str_musicid": "896389745",
-    "refresh_key": "64aN2VZrHj5I7f9sXUdvNFKdTdhH7OJFqAKd7A29OYsvjOj-TzZ_u4Mvt2uxxOhpvv5j3cFMVUi4m7rn9OcwhSLY6Xqbo8sWj8gtfFnY4X9amoEqHGz3ZYGG8ixKQ2UuUSZpITdRaUYbYV4lh4DnUSw3Ec",
-    "encrypt_uin": "NeEsoicq7ivk",
-    "login_type": "2",
-    "extra_fields": "{'musickeyCreateTime': 1768301562, 'keyExpiresIn': 259200}"
-}
-'''
+EXTERNAL_API_URL = "https://api.ygking.top"

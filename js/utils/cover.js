@@ -22,21 +22,35 @@ function getCoverUrlByVs(vs, size = 300) {
 }
 
 /**
- * Check if cover URL is valid by fetching it
+ * Check if cover URL is valid by loading image
  */
-async function checkCoverValid(url) {
-    if (!url) return false;
-    try {
-        const resp = await fetch(url, { method: 'HEAD' });
-        if (resp.ok) {
-            const contentLength = resp.headers.get('content-length');
-            // Check if image is larger than 1KB (valid image)
-            return contentLength && parseInt(contentLength) > 1024;
+function checkCoverValid(url, timeout = 3000) {
+    return new Promise((resolve) => {
+        if (!url) {
+            resolve(false);
+            return;
         }
-    } catch (e) {
-        console.warn('Cover check failed:', url, e);
-    }
-    return false;
+
+        const img = new Image();
+        const timer = setTimeout(() => {
+            img.onload = null;
+            img.onerror = null;
+            resolve(false);
+        }, timeout);
+
+        img.onload = () => {
+            clearTimeout(timer);
+            // Check if image is valid (not placeholder)
+            resolve(img.naturalWidth > 10 && img.naturalHeight > 10);
+        };
+
+        img.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+        };
+
+        img.src = url;
+    });
 }
 
 /**
@@ -56,59 +70,70 @@ export async function getValidCoverUrl(song, size = 300) {
     const albumMid = song?.album_mid || song?.album?.mid;
     if (albumMid) {
         const url = getCoverUrlByAlbumMid(albumMid, size);
+        console.log('[Cover] Trying album_mid:', albumMid, url);
         if (await checkCoverValid(url)) {
+            console.log('[Cover] album_mid valid');
             return url;
         }
     }
 
     // 2. Try vs values
     const vsValues = song?.vs || [];
-    if (Array.isArray(vsValues)) {
-        // Collect all candidate vs values
+    if (Array.isArray(vsValues) && vsValues.length > 0) {
+        console.log('[Cover] Trying vs values:', vsValues.filter(v => v));
+
+        // Filter and collect non-empty vs values
         const candidates = [];
 
-        // Single vs values (priority 1)
         for (const vs of vsValues) {
-            if (vs && typeof vs === 'string' && vs.length >= 3 && !vs.includes(',')) {
-                candidates.push({ value: vs, priority: 1 });
-            }
-        }
-
-        // Comma-separated vs values (priority 2)
-        for (const vs of vsValues) {
-            if (vs && typeof vs === 'string' && vs.includes(',')) {
-                const parts = vs.split(',').map(p => p.trim()).filter(p => p.length >= 3);
-                for (const part of parts) {
-                    candidates.push({ value: part, priority: 2 });
+            if (vs && typeof vs === 'string' && vs.length >= 3) {
+                if (vs.includes(',')) {
+                    // Comma-separated values
+                    const parts = vs.split(',').map(p => p.trim()).filter(p => p.length >= 3);
+                    candidates.push(...parts);
+                } else {
+                    candidates.push(vs);
                 }
             }
         }
 
-        // Sort by priority
-        candidates.sort((a, b) => a.priority - b.priority);
-
         // Try each candidate
         for (const candidate of candidates) {
-            const url = getCoverUrlByVs(candidate.value, size);
+            const url = getCoverUrlByVs(candidate, size);
+            console.log('[Cover] Trying vs:', candidate, url);
             if (await checkCoverValid(url)) {
+                console.log('[Cover] vs valid:', candidate);
                 return url;
             }
         }
     }
 
     // 3. Return default cover
+    console.log('[Cover] Using default cover');
     return DEFAULT_COVER.replace('R800x800', `R${size}x${size}`);
 }
 
 /**
  * Synchronous cover URL getter (no validation)
- * Use this for immediate display, then validate async
+ * First tries album_mid, then first non-empty vs value
  */
 export function getCoverUrlSync(song, size = 300) {
+    // Try album_mid first
     const albumMid = song?.album_mid || song?.album?.mid;
     if (albumMid) {
         return getCoverUrlByAlbumMid(albumMid, size);
     }
+
+    // Try first non-empty vs value
+    const vsValues = song?.vs || [];
+    if (Array.isArray(vsValues)) {
+        for (const vs of vsValues) {
+            if (vs && typeof vs === 'string' && vs.length >= 3 && !vs.includes(',')) {
+                return getCoverUrlByVs(vs, size);
+            }
+        }
+    }
+
     return DEFAULT_COVER.replace('R800x800', `R${size}x${size}`);
 }
 

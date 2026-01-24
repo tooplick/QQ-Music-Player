@@ -974,18 +974,21 @@ body.playing .bg-layer {
     transform-origin: calc(var(--lyric-radius) * -1) 50%;
 
     white-space: nowrap;
-    padding: 10px 20px;
-    font-size: 24px;
-    /* 稍微调大基础字号 */
+    padding: 12px 20px;
+    /* 增加一点padding */
+    font-size: 28px;
+    /* 增大基础字号 */
     font-weight: 500;
     color: rgba(255, 255, 255, 0.35);
-    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    /* 更平滑的缓动 */
+    transition: color 0.3s ease, opacity 0.3s ease;
+    /* 移除 transform transition 以便JS控制滚动 */
     cursor: pointer;
     letter-spacing: 1px;
     /* 解决文字模糊问题 */
     backface-visibility: hidden;
     -webkit-font-smoothing: antialiased;
+    /* 禁止选中 */
+    user-select: none;
 }
 
 .lyric-line:hover {
@@ -993,8 +996,8 @@ body.playing .bg-layer {
 }
 
 .lyric-line.active {
-    /* 字号不变大，只加粗 */
-    font-size: 24px;
+    font-size: 28px;
+    /* 保持跟普通行一致 */
     font-weight: 700;
     color: #ffffff;
     text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);

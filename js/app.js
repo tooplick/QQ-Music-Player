@@ -306,7 +306,7 @@ class UIManager {
     highlightLyric(currentTime) {
         if (!this.currentLyrics || this.currentLyrics.length === 0) return;
 
-        // 过滤后的歌词（和渲染时一致）
+        // 过滤后的歌词
         const filteredLyrics = this.currentLyrics.filter(l => l.text);
         if (filteredLyrics.length === 0) return;
 
@@ -319,32 +319,51 @@ class UIManager {
             }
         }
 
-        if (activeIdx === this.lastHighlightIdx) return;
-        this.lastHighlightIdx = activeIdx;
-
-        // 更新高亮和弧形布局
+        // 更新高亮样式
         const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
-        // 半径增大后，弧度变平缓，需要的角度步长更小才能保持行间距
+        if (activeIdx !== this.lastHighlightIdx) {
+            lines.forEach((line, i) => {
+                line.classList.toggle('active', i === activeIdx);
+            });
+            this.lastHighlightIdx = activeIdx;
+        }
+
+        // 如果没有正在滚动，自动更新渲染位置
+        if (!this.userScrolling) {
+            // 使用缓动逼近目标位置
+            const targetIndex = activeIdx;
+            // 简单的缓动：当前位置 += (目标位置 - 当前位置) *系数
+            // 但为了平滑，这里我们直接设置目标，让 renderLyricLines 处理偏移
+            this.currentRenderIndex = this.currentRenderIndex === undefined ? targetIndex : this.currentRenderIndex + (targetIndex - this.currentRenderIndex) * 0.1;
+
+            // 如果差距很小，直接设置
+            if (Math.abs(targetIndex - this.currentRenderIndex) < 0.01) {
+                this.currentRenderIndex = targetIndex;
+            }
+            this.renderLyricLines();
+        }
+    }
+
+    renderLyricLines() {
+        const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
         const angleStep = 3.5;
+        const bias = -1; // 向上偏移一行，使高亮显示在上一行的位置
 
         lines.forEach((line, i) => {
-            const isActive = i === activeIdx;
-            line.classList.toggle('active', isActive);
+            // 这里的 offset 计算包含了 bias
+            // i 是当前行索引
+            // currentRenderIndex 是当前焦点行索引（可能是小数）
+            // bias 是额外的视觉偏移
+            const offset = (i - this.currentRenderIndex + bias);
 
-            // 计算相对于当前行的偏移
-            const offset = i - activeIdx;
-            // 计算旋转角度
             const angle = offset * angleStep;
-            // 计算透明度（越远越透明）
+
+            // 计算透明度 - 距离 currentRenderIndex - bias (即视觉中心) 的距离
+            // 实际上视觉中心就是 offset = 0 的位置
             const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
-            // 移除缩放逻辑，保持字号一致
 
-            // 应用变换
-            // 注意：active状态下CSS有transform: scale(1.05)，这里我们直接覆盖transform
             line.style.transform = `rotate(${angle}deg)`;
-            line.style.opacity = isActive ? 1 : opacity;
-
-            // 优化性能：离得太远的行隐藏
+            line.style.opacity = opacity;
             line.style.visibility = opacity <= 0.05 ? 'hidden' : 'visible';
         });
     }
@@ -353,11 +372,16 @@ class UIManager {
     setUserScrolling(scrolling) {
         this.userScrolling = scrolling;
         if (scrolling) {
-            // 用户滚动后3秒恢复自动滚动
+            // 清除之前的恢复定时器
             clearTimeout(this.scrollTimeout);
+            // 这里不自动恢复，直到用户点击或者其他操作（根据用户需求：滑动时不要自动定位）
+            // 但为了防止永远不恢复，我们设置一个较长的超时，或者在播放新的歌词行时检查
+            // 如果用户说“滑动时不要自动定位”，通常意味着只要我在交互，就别动。
+            // 我们保留一个 长时间的 timeout 或者仅仅 relying on click/manual reset
+            // 为了体验，我们设定5秒无操作后恢复
             this.scrollTimeout = setTimeout(() => {
                 this.userScrolling = false;
-            }, 3000);
+            }, 5000);
         }
     }
 }
@@ -938,12 +962,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    // 歌词滚动事件 - 用户滚动时暂停自动定位
-    ui.els.lyricsScroll.addEventListener('wheel', () => {
+    // 歌词滚动事件 - 用户手动滚动
+    ui.els.lyricsScroll.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        ui.setUserScrolling(true);
+        // 调整灵敏度
+        const delta = e.deltaY * 0.005;
+        if (ui.currentRenderIndex !== undefined) {
+            ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
+            ui.renderLyricLines();
+        }
+    });
+
+    let touchStartY = 0;
+    ui.els.lyricsScroll.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
         ui.setUserScrolling(true);
     });
-    ui.els.lyricsScroll.addEventListener('touchmove', () => {
+
+    ui.els.lyricsScroll.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // 防止默认滚动
         ui.setUserScrolling(true);
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchStartY - touchY;
+        touchStartY = touchY;
+
+        // 触摸灵敏度
+        const delta = deltaY * 0.02;
+        if (ui.currentRenderIndex !== undefined) {
+            ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
+            ui.renderLyricLines();
+        }
     });
 
     // 歌词加载函数

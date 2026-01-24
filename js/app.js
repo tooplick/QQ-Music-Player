@@ -306,10 +306,14 @@ class UIManager {
     highlightLyric(currentTime) {
         if (!this.currentLyrics || this.currentLyrics.length === 0) return;
 
+        // 过滤后的歌词（和渲染时一致）
+        const filteredLyrics = this.currentLyrics.filter(l => l.text);
+        if (filteredLyrics.length === 0) return;
+
         // 找到当前歌词行
         let activeIdx = -1;
-        for (let i = this.currentLyrics.length - 1; i >= 0; i--) {
-            if (currentTime >= this.currentLyrics[i].time) {
+        for (let i = filteredLyrics.length - 1; i >= 0; i--) {
+            if (currentTime >= filteredLyrics[i].time) {
                 activeIdx = i;
                 break;
             }
@@ -324,6 +328,9 @@ class UIManager {
             line.classList.toggle('active', i === activeIdx);
         });
 
+        // 检查是否用户正在滚动（3秒内不自动滚动）
+        if (this.userScrolling) return;
+
         // 滚动到当前歌词
         if (activeIdx >= 0 && lines[activeIdx]) {
             const container = this.els.lyricsScroll;
@@ -336,6 +343,18 @@ class UIManager {
                 top: lineTop - containerHeight / 2 + lineHeight / 2,
                 behavior: 'smooth'
             });
+        }
+    }
+
+    // 设置用户滚动状态
+    setUserScrolling(scrolling) {
+        this.userScrolling = scrolling;
+        if (scrolling) {
+            // 用户滚动后3秒恢复自动滚动
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = setTimeout(() => {
+                this.userScrolling = false;
+            }, 3000);
         }
     }
 }
@@ -911,9 +930,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const time = parseFloat(e.target.dataset.time);
             if (!isNaN(time)) {
                 player.seek(time);
+                ui.userScrolling = false; // 点击歌词后恢复自动滚动
             }
         }
     };
+
+    // 歌词滚动事件 - 用户滚动时暂停自动定位
+    ui.els.lyricsScroll.addEventListener('wheel', () => {
+        ui.setUserScrolling(true);
+    });
+    ui.els.lyricsScroll.addEventListener('touchmove', () => {
+        ui.setUserScrolling(true);
+    });
 
     // 歌词加载函数
     async function loadLyricsForSong(mid) {

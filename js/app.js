@@ -383,14 +383,13 @@ class UIManager {
 
     updateImmersiveLayout() {
         const h = window.innerHeight;
-        // 二次函数曲线参数
-        // 曲率半径 R。高度越高，R越小（弯曲越大）
-        // 之前圆是 ~300-800。二次函数为了舒展一点，我们可以稍微大一点
-        let radius = 700000 / Math.max(300, h);
-        this.curveRadius = Math.max(500, Math.min(1500, radius));
+        // 动态半径：高度越高，半径越小
+        let radius = 640000 / Math.max(400, h);
+        radius = Math.max(400, Math.min(1200, radius));
+        this.els.lyricsScroll.style.setProperty('--lyric-radius', `${radius}px`);
 
-        // 估算行高用于计算 y
-        this.lineHeight = 70;
+        const spacing = 80;
+        this.currentAngleStep = (spacing / radius) * 57.2958;
     }
 
     renderFrame() {
@@ -405,44 +404,19 @@ class UIManager {
             }
         }
 
-        const bias = -1; // 视觉偏移 (高亮行上移一行)
+        const angleStep = this.currentAngleStep || 6;
+        const bias = -1;
         const visibleRange = 25;
-
-        // 使用缓存的 R 和 lineHeight
-        const R = this.curveRadius || 800;
-        const lh = this.lineHeight || 70;
+        const centerIndex = Math.floor(this.currentRenderIndex);
 
         for (let i = 0; i < this.lyricElements.length; i++) {
             const offset = i - this.currentRenderIndex + bias;
-
             if (Math.abs(offset) < visibleRange) {
                 const el = this.lyricElements[i];
-
-                // 计算垂直距离 y
-                const y = offset * lh;
-
-                // 计算水平偏移 x (二次函数 x = - y^2 / 2R)
-                // 使得中间(y=0) x=0，两边向左弯曲(x负值)
-                const x = - (y * y) / (2 * R);
-
-                // 计算旋转角度 (切线角度 arctan(-y/R))
-                // * 57.2958 是弧度转角度
-                // 稍微减弱一点旋转，让两边字更正一点，阅读舒展
-                const angle = Math.atan(-y / R) * 57.2958 * 0.9;
-
-                // 透明度
-                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.15);
-
-                // 应用变换: 先平移再旋转 (相对于自身中心)
-                // 注意：由于CSS中left固定，translate是相对于该位置的偏移
-                // 我们需要 y 轴偏移来排布歌词
-
-                // scale 稍微在两端变小一点点，增强透视感? 不，用户让高亮不要变大，那也不要变小太明显
-                const scale = 1;
-
-                el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}deg) scale(${scale})`;
+                const angle = offset * angleStep;
+                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
+                el.style.transform = `rotate(${angle}deg)`;
                 el.style.opacity = opacity;
-
                 if (el.style.visibility !== 'visible') el.style.visibility = 'visible';
             } else {
                 if (this.lyricElements[i].style.visibility !== 'hidden') {

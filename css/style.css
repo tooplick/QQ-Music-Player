@@ -957,7 +957,7 @@ body.playing .bg-layer {
     /* 定义圆的半径 - 增大半径 */
     --lyric-radius: 120vh;
     /* 定义圆心各行距离左侧的偏移 (圆边缘的位置) */
-    --lyric-left: 40px;
+    --lyric-left: 120px;
 }
 
 .lyrics-scroll::-webkit-scrollbar {

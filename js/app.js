@@ -731,14 +731,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Search
     const searchInput = document.getElementById('search-input');
-    const debouncedSearch = debounce((keyword) => {
-        search.search(keyword);
-    }, 500);
 
     searchInput.oninput = (e) => {
         const keyword = e.target.value;
         document.getElementById('search-clear').style.display = keyword ? 'block' : 'none';
-        debouncedSearch(keyword);
     };
 
     searchInput.onkeypress = (e) => {

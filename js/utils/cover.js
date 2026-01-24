@@ -23,8 +23,9 @@ function getCoverUrlByVs(vs, size = 300) {
 
 /**
  * Check if cover URL is valid by loading image
+ * 参考 nekro 项目的验证方式：检查图片是否有效且尺寸合理
  */
-function checkCoverValid(url, timeout = 3000) {
+function checkCoverValid(url, timeout = 5000) {
     return new Promise((resolve) => {
         if (!url) {
             resolve(false);
@@ -32,23 +33,37 @@ function checkCoverValid(url, timeout = 3000) {
         }
 
         const img = new Image();
+        let resolved = false;
+
         const timer = setTimeout(() => {
-            img.onload = null;
-            img.onerror = null;
-            resolve(false);
+            if (!resolved) {
+                resolved = true;
+                img.onload = null;
+                img.onerror = null;
+                img.src = '';
+                resolve(false);
+            }
         }, timeout);
 
         img.onload = () => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
-            // Check if image is valid (not placeholder)
-            resolve(img.naturalWidth > 10 && img.naturalHeight > 10);
+            // 验证图片尺寸：有效封面应该大于 50x50 像素
+            // 无效封面可能返回小尺寸占位图
+            const isValid = img.naturalWidth >= 50 && img.naturalHeight >= 50;
+            resolve(isValid);
         };
 
         img.onerror = () => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
             resolve(false);
         };
 
+        // 设置 crossOrigin 以尝试加载跨域图片
+        img.crossOrigin = 'anonymous';
         img.src = url;
     });
 }
@@ -66,7 +81,7 @@ export async function getValidCoverUrl(song, size = 300) {
         size = 300;
     }
 
-    // 1. Try album_mid first
+    // 1. Try album_mid first (优先使用专辑封面)
     const albumMid = song?.album_mid || song?.album?.mid;
     if (albumMid) {
         const url = getCoverUrlByAlbumMid(albumMid, size);
@@ -75,27 +90,35 @@ export async function getValidCoverUrl(song, size = 300) {
         }
     }
 
-    // 2. Try vs values
+    // 2. Try vs values (尝试 VS 值)
     const vsValues = song?.vs || [];
     if (Array.isArray(vsValues) && vsValues.length > 0) {
-        // Filter and collect non-empty vs values
+        // 收集候选VS值，单个值优先，逗号分隔的其次
         const candidates = [];
 
+        // 2.1 收集单个VS值（优先级1）
         for (const vs of vsValues) {
-            if (vs && typeof vs === 'string' && vs.length >= 3) {
-                if (vs.includes(',')) {
-                    // Comma-separated values
-                    const parts = vs.split(',').map(p => p.trim()).filter(p => p.length >= 3);
-                    candidates.push(...parts);
-                } else {
-                    candidates.push(vs);
+            if (vs && typeof vs === 'string' && vs.length >= 3 && !vs.includes(',')) {
+                candidates.push({ value: vs, priority: 1 });
+            }
+        }
+
+        // 2.2 收集逗号分隔的VS值（优先级2）
+        for (const vs of vsValues) {
+            if (vs && typeof vs === 'string' && vs.includes(',')) {
+                const parts = vs.split(',').map(p => p.trim()).filter(p => p.length >= 3);
+                for (const part of parts) {
+                    candidates.push({ value: part, priority: 2 });
                 }
             }
         }
 
-        // Try each candidate
+        // 按优先级排序
+        candidates.sort((a, b) => a.priority - b.priority);
+
+        // 逐个尝试
         for (const candidate of candidates) {
-            const url = getCoverUrlByVs(candidate, size);
+            const url = getCoverUrlByVs(candidate.value, size);
             if (await checkCoverValid(url)) {
                 return url;
             }
@@ -117,7 +140,7 @@ export function getCoverUrlSync(song, size = 300) {
         return getCoverUrlByAlbumMid(albumMid, size);
     }
 
-    // Try first non-empty vs value
+    // Try first non-empty single vs value (not comma-separated)
     const vsValues = song?.vs || [];
     if (Array.isArray(vsValues)) {
         for (const vs of vsValues) {
@@ -131,3 +154,4 @@ export function getCoverUrlSync(song, size = 300) {
 }
 
 export { DEFAULT_COVER };
+

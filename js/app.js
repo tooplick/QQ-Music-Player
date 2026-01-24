@@ -623,6 +623,7 @@ class SearchManager {
 
         results.forEach(song => {
             const singers = song.singer?.map(s => s.name).join(', ') || '';
+            const coverCandidates = getCoverCandidates({ album_mid: song.album?.mid, vs: song.vs }, 300);
             const albumName = song.album?.name || '';
             const duration = song.interval ? this.formatDuration(song.interval) : '';
 
@@ -630,7 +631,7 @@ class SearchManager {
             item.className = 'song-item';
             item.innerHTML = `
                 <div class="item-cover">
-                    <img src="${DEFAULT_COVER.replace('R800x800', 'R300x300')}" loading="lazy">
+                    <img src="${coverCandidates[0]}" loading="lazy" data-cover-index="0">
                 </div>
                 <div class="item-info">
                     <div class="item-title">${song.title || song.name}</div>
@@ -647,11 +648,17 @@ class SearchManager {
                 </div>
             `;
 
-            // 异步获取有效封面
+            // 添加图片加载失败时的回退处理
             const img = item.querySelector('img');
-            getValidCoverUrl({ album_mid: song.album?.mid, vs: song.vs }, 300).then(url => {
-                img.src = url;
-            });
+            img._coverCandidates = coverCandidates;
+            img.onerror = function () {
+                const currentIndex = parseInt(this.dataset.coverIndex) || 0;
+                const nextIndex = currentIndex + 1;
+                if (nextIndex < this._coverCandidates.length) {
+                    this.dataset.coverIndex = nextIndex;
+                    this.src = this._coverCandidates[nextIndex];
+                }
+            };
 
             const songData = {
                 mid: song.mid,

@@ -8,18 +8,16 @@
     <meta name="referrer" content="no-referrer">
     <title>QQMusic Web</title>
     <link rel="icon" type="image/png" href="images/favicon.png">
-    <!-- 首屏关键样式：内联确保立即生效 -->
     <style>
         body {
             margin: 0;
-            background: #f2f2f7;
+            background: #0a0a0a;
         }
     </style>
 </head>
 
 <body>
-
-    <!-- CSS 放在 body 内异步加载 -->
+    <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         media="print" onload="this.media='all'">
@@ -29,160 +27,148 @@
     <!-- 加密和解压缩库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-    <!-- 动态背景层（双层实现淡入淡出） -->
+
+    <!-- 动态背景层 -->
     <div class="bg-container">
         <div class="bg-layer" id="bg-layer-1"></div>
         <div class="bg-layer fade-out" id="bg-layer-2"></div>
     </div>
     <div class="bg-mask"></div>
 
-    <!-- 主视图容器 -->
-    <div class="player-view">
-        <!-- 顶部栏 -->
-        <div class="top-bar">
-            <div class="logo">
-                <i class="fas fa-music"></i>
-                <span>Music</span>
+    <!-- 应用容器 -->
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-compact-disc"></i>
+                    <span>Music</span>
+                </div>
             </div>
-            <div class="top-bar-actions">
-                <button class="search-btn" id="playlist-btn" title="播放列表">
-                    <i class="fas fa-list"></i>
-                </button>
-                <button class="search-btn" id="search-btn" title="搜索">
+            <nav class="nav-menu">
+                <button class="nav-item active" data-page="search">
                     <i class="fas fa-search"></i>
+                    <span>搜索</span>
                 </button>
-            </div>
-        </div>
+                <button class="nav-item" data-page="playlist">
+                    <i class="fas fa-list-ul"></i>
+                    <span>播放列表</span>
+                </button>
+            </nav>
+        </aside>
 
-        <!-- 主内容区 - 居中布局 -->
-        <div class="main-view">
-            <!-- 封面视图 (默认显示) -->
-            <div class="cover-view active" id="cover-view">
-                <div class="album-cover-large" id="album-cover">
-                    <img src="https://y.gtimg.cn/music/photo_new/T002R800x800M000003y8dsH2wBHlo_1.jpg" alt="Cover"
-                        id="current-cover" loading="lazy">
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 搜索页 -->
+            <section class="page search-page active" id="search-page">
+                <div class="page-header">
+                    <h1>搜索</h1>
                 </div>
-                <div class="song-meta">
-                    <h1 class="song-title" id="current-title">等待播放</h1>
-                    <p class="song-artist" id="current-artist">选择一首歌曲开始</p>
-                </div>
-            </div>
-
-            <!-- 歌词视图 (点击封面后显示) -->
-            <div class="lyrics-view" id="lyrics-view">
-                <div class="song-meta-mini">
-                    <span id="title-mini">等待播放</span> - <span id="artist-mini">-</span>
-                </div>
-                <div class="lyrics-scroll" id="lyrics-scroll">
-                    <div class="empty-state">
-                        <i class="fas fa-music"></i>
-                        <p>歌词将显示在这里</p>
+                <div class="search-box">
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="搜索歌曲、歌手、专辑">
+                        <button id="search-clear" style="display: none;">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
+                <div class="search-results" id="search-results">
+                    <div class="loading-state" id="loading-spinner" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>搜索中...</span>
+                    </div>
+                    <div class="results-list" id="results-list">
+                        <div class="empty-state">
+                            <i class="fas fa-music"></i>
+                            <p>输入关键词开始搜索</p>
+                        </div>
+                    </div>
+                    <div class="pagination" id="pagination" style="display: none;">
+                        <button class="page-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button>
+                        <span id="page-info">1 / 1</span>
+                        <button class="page-btn" id="next-page"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </section>
 
-        <!-- 底部控制栏 - 单行 -->
-        <div class="bottom-controls">
-            <!-- 进度条 -->
-            <div class="progress-bar" id="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
-            </div>
-
-            <!-- 单行控制 -->
-            <div class="controls-row">
-                <div class="controls-left">
-                    <div class="time-label" id="current-time">0:00</div>
-
-                    <button class="quality-toggle-btn" id="quality-toggle" title="点击切换音质">
-                        <span id="quality-label">FLAC</span>
+            <!-- 播放列表页 -->
+            <section class="page playlist-page" id="playlist-page">
+                <div class="page-header">
+                    <h1>播放列表</h1>
+                    <button class="header-action" id="clear-playlist" title="清空列表">
+                        <i class="fas fa-trash"></i>
                     </button>
-                    <input type="hidden" name="quality" id="quality-value" value="flac">
                 </div>
-
-                <div class="controls-center">
-                    <button class="ctrl-btn" id="prev-btn"><i class="fas fa-backward-step"></i></button>
-                    <button class="ctrl-btn play-btn-main" id="play-btn"><i class="fas fa-play"></i></button>
-                    <button class="ctrl-btn" id="next-btn"><i class="fas fa-forward-step"></i></button>
+                <div class="playlist-content" id="playlist-list">
+                    <div class="empty-state">
+                        <i class="fas fa-music"></i>
+                        <p>播放列表为空</p>
+                        <p class="hint">搜索歌曲并点击"+"添加</p>
+                    </div>
                 </div>
-
-                <div class="controls-right">
-                    <button class="ctrl-btn mode-btn" id="mode-btn" title="顺序播放">
-                        <i class="fas fa-repeat"></i>
-                    </button>
-
-                    <div class="time-label" id="total-time">0:00</div>
-                </div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
 
-    <!-- 搜索抽屉 -->
-    <div class="search-drawer" id="search-drawer">
-        <div class="drawer-header">
-            <button class="close-drawer" id="close-drawer">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <h2>搜索</h2>
+    <!-- 底部控制栏 -->
+    <footer class="bottom-bar">
+        <!-- 进度条 -->
+        <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
         </div>
 
-        <div class="drawer-content">
-            <div class="search-input-wrapper">
-                <i class="fas fa-search"></i>
-                <input type="text" id="search-input" placeholder="搜索歌曲、歌手、专辑">
-                <button id="search-clear" style="display: none;">
-                    <i class="fas fa-times-circle"></i>
+        <div class="bar-content">
+            <!-- 左侧：歌曲信息 -->
+            <div class="now-playing">
+                <div class="cover-thumb" id="cover-thumb">
+                    <img src="https://y.gtimg.cn/music/photo_new/T002R800x800M000003y8dsH2wBHlo_1.jpg" alt="Cover"
+                        id="thumb-img">
+                </div>
+                <div class="song-info">
+                    <div class="song-title" id="bar-title">等待播放</div>
+                    <div class="song-artist" id="bar-artist">选择一首歌曲开始</div>
+                </div>
+            </div>
+
+            <!-- 中间：播放控制 -->
+            <div class="playback-controls">
+                <button class="ctrl-btn" id="prev-btn" title="上一首">
+                    <i class="fas fa-backward-step"></i>
+                </button>
+                <button class="ctrl-btn play-btn" id="play-btn" title="播放/暂停">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="ctrl-btn" id="next-btn" title="下一首">
+                    <i class="fas fa-forward-step"></i>
                 </button>
             </div>
 
-            <div class="search-results" id="search-results">
-                <div class="loading-state" id="loading-spinner" style="display: none;">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <span>搜索中...</span>
+            <!-- 右侧：时间和额外控制 -->
+            <div class="extra-controls">
+                <div class="time-display">
+                    <span id="current-time">0:00</span>
+                    <span class="time-sep">/</span>
+                    <span id="total-time">0:00</span>
                 </div>
-                <div class="results-list" id="results-list"></div>
-                <div class="pagination" id="pagination" style="display: none;">
-                    <button class="page-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button>
-                    <span id="page-info">1 / 1</span>
-                    <button class="page-btn" id="next-page"><i class="fas fa-chevron-right"></i></button>
-                </div>
+                <button class="ctrl-btn mode-btn" id="mode-btn" title="顺序播放">
+                    <i class="fas fa-repeat"></i>
+                </button>
+                <button class="ctrl-btn quality-btn" id="quality-toggle" title="切换音质">
+                    <span id="quality-label">FLAC</span>
+                </button>
+                <input type="hidden" name="quality" id="quality-value" value="flac">
             </div>
         </div>
-    </div>
+    </footer>
 
-    <!-- 播放列表抽屉 -->
-    <div class="search-drawer playlist-drawer" id="playlist-drawer">
-        <div class="drawer-header">
-            <button class="close-drawer" id="close-playlist">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <h2>播放列表</h2>
-            <button class="clear-playlist-btn" id="clear-playlist" title="清空列表">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-
-        <div class="drawer-content">
-            <div class="playlist-list" id="playlist-list">
-                <div class="empty-state">
-                    <i class="fas fa-music"></i>
-                    <p>播放列表为空</p>
-                    <p style="font-size: 12px; opacity: 0.6;">搜索歌曲并点击"+"添加</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 遮罩层 -->
-    <div class="drawer-overlay" id="drawer-overlay"></div>
-
-    <!-- 通知 -->
+    <!-- 通知容器 -->
     <div class="notification-container" id="notification-container"></div>
 
     <!-- 使用 ES Modules -->
     <script type="module" src="js/app.js"></script>
 
-    <!-- 注册 Service Worker 实现资源缓存 -->
+    <!-- 注册 Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')

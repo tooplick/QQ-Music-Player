@@ -1,12 +1,11 @@
 /**
  * QQ Music Web Player - Main Application
- * Pure Frontend Implementation
+ * Sidebar Layout Version
  */
 
 import { searchByType } from './api/search.js';
 import { getSongUrlWithFallback } from './api/song.js';
-import { getLyric } from './api/lyric.js';
-import { getCredential, updateCredential } from './api/credential.js';
+import { getCredential } from './api/credential.js';
 import { checkExpired, refreshCredential } from './api/login.js';
 import { getValidCoverUrl, getCoverUrlSync, DEFAULT_COVER } from './utils/cover.js';
 
@@ -34,12 +33,10 @@ class UIManager {
             bgLayer1: document.getElementById('bg-layer-1'),
             bgLayer2: document.getElementById('bg-layer-2'),
 
-            // Song info
-            albumCover: document.getElementById('current-cover'),
-            title: document.getElementById('current-title'),
-            artist: document.getElementById('current-artist'),
-            titleMini: document.getElementById('title-mini'),
-            artistMini: document.getElementById('artist-mini'),
+            // Bottom bar info
+            thumbImg: document.getElementById('thumb-img'),
+            barTitle: document.getElementById('bar-title'),
+            barArtist: document.getElementById('bar-artist'),
 
             // Controls
             playBtn: document.getElementById('play-btn'),
@@ -48,15 +45,9 @@ class UIManager {
             progressFill: document.getElementById('progress-fill'),
             progressBar: document.getElementById('progress-bar'),
 
-            // Views
-            coverView: document.getElementById('cover-view'),
-            lyricsView: document.getElementById('lyrics-view'),
-            lyricsScroll: document.getElementById('lyrics-scroll'),
-
-            // Drawers
-            searchDrawer: document.getElementById('search-drawer'),
-            playlistDrawer: document.getElementById('playlist-drawer'),
-            drawerOverlay: document.getElementById('drawer-overlay'),
+            // Pages
+            searchPage: document.getElementById('search-page'),
+            playlistPage: document.getElementById('playlist-page'),
 
             // Search
             searchInput: document.getElementById('search-input'),
@@ -73,27 +64,38 @@ class UIManager {
         };
 
         this.activeBgLayer = 1;
-        this.currentLyrics = [];
-        this.lastHighlightIdx = -1;
-        this.userScrolling = false;
-        this.drawerOpen = false; // 追踪抽屉打开状态
+        this.currentPage = 'search';
 
-        this.setupLyricsScrollListener();
+        this.initNavigation();
     }
 
-    setupLyricsScrollListener() {
-        const resetScrolling = debounce(() => {
-            this.userScrolling = false;
-        }, 3000);
+    initNavigation() {
+        // 侧边栏导航点击事件
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = btn.dataset.page;
+                this.switchPage(page);
+            });
+        });
+    }
 
-        const onUserInteract = () => {
-            this.userScrolling = true;
-            resetScrolling();
-        };
+    switchPage(pageName) {
+        this.currentPage = pageName;
 
-        this.els.lyricsScroll.addEventListener('touchstart', onUserInteract, { passive: true });
-        this.els.lyricsScroll.addEventListener('touchmove', onUserInteract, { passive: true });
-        this.els.lyricsScroll.addEventListener('wheel', onUserInteract, { passive: true });
+        // 更新导航按钮状态
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.page === pageName);
+        });
+
+        // 切换页面显示
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+
+        const targetPage = document.getElementById(`${pageName}-page`);
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
     }
 
     notify(msg, type = 'success') {
@@ -101,10 +103,7 @@ class UIManager {
 
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            <span>${msg}</span>
-        `;
+        toast.innerHTML = `<span>${msg}</span>`;
         this.els.notificationContainer.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('show'));
         setTimeout(() => {
@@ -117,6 +116,8 @@ class UIManager {
         this.els.playBtn.innerHTML = isPlaying
             ? '<i class="fas fa-pause"></i>'
             : '<i class="fas fa-play"></i>';
+
+        document.body.classList.toggle('playing', isPlaying);
     }
 
     updateProgress(curr, total) {
@@ -127,133 +128,49 @@ class UIManager {
     }
 
     updateSongInfo(song) {
-        const textEls = [this.els.title, this.els.artist, this.els.titleMini, this.els.artistMini, this.els.albumCover];
-        textEls.forEach(el => el?.classList.add('fade-out'));
+        // 更新底部栏信息
+        this.els.barTitle.textContent = song.name;
+        this.els.barArtist.textContent = song.singers;
 
-        setTimeout(() => {
-            this.els.title.textContent = song.name;
-            this.els.artist.textContent = song.singers;
-            if (this.els.titleMini) this.els.titleMini.textContent = song.name;
-            if (this.els.artistMini) this.els.artistMini.textContent = song.singers;
+        // 更新封面
+        const coverUrl = getCoverUrlSync(song, 300);
+        this.els.thumbImg.src = coverUrl;
 
-            [this.els.title, this.els.artist, this.els.titleMini, this.els.artistMini].forEach(el => el?.classList.remove('fade-out'));
-
-            // Update cover - use sync first, then validate async
-            const coverUrl = getCoverUrlSync(song, 800);
-            // Async validate and update if needed
-            getValidCoverUrl(song, 800).then(validUrl => {
-                if (validUrl !== coverUrl) {
-                    this.els.albumCover.src = validUrl;
-                }
-            });
-
-            this.els.albumCover.src = coverUrl;
-            this.els.albumCover.onload = () => this.els.albumCover.classList.remove('fade-out');
-            setTimeout(() => this.els.albumCover.classList.remove('fade-out'), 100);
-
-            // Update Media Session
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: song.name,
-                    artist: song.singers,
-                    album: song.album || '',
-                    artwork: [
-                        { src: coverUrl.replace('R800x800', 'R300x300'), sizes: '300x300', type: 'image/jpeg' },
-                        { src: coverUrl, sizes: '800x800', type: 'image/jpeg' }
-                    ]
-                });
+        // 异步验证并更新封面
+        getValidCoverUrl(song, 300).then(validUrl => {
+            if (validUrl !== coverUrl) {
+                this.els.thumbImg.src = validUrl;
             }
-        }, 300);
-    }
-
-    // 背景已隐藏，不再需要 setBackground 方法
-
-    renderLyrics(lyricsData) {
-        this.els.lyricsScroll.classList.add('fade-out');
-        setTimeout(() => {
-            this._doRenderLyrics(lyricsData);
-            this.els.lyricsScroll.classList.remove('fade-out');
-        }, 300);
-    }
-
-    _doRenderLyrics(lyricsData) {
-        this.currentLyrics = [];
-        this.els.lyricsScroll.innerHTML = '';
-
-        const parse = (text) => {
-            if (!text) return [];
-            const lines = text.split('\n');
-            const res = [];
-            const re = /\[(\d+):(\d+)\.(\d+)\]/;
-
-            lines.forEach(l => {
-                const m = l.match(re);
-                if (m) {
-                    const min = parseInt(m[1]);
-                    const sec = parseInt(m[2]);
-                    const msStr = m[3];
-                    const ms = parseInt(msStr) / Math.pow(10, msStr.length);
-                    const t = min * 60 + sec + ms;
-                    const txt = l.replace(re, '').trim();
-                    if (txt) res.push({ t, txt });
-                }
-            });
-            return res;
-        };
-
-        if (lyricsData?.lyric) {
-            this.currentLyrics = parse(lyricsData.lyric);
-        }
-
-        if (this.currentLyrics.length === 0) {
-            this.els.lyricsScroll.innerHTML = '<div class="empty-state"><i class="fas fa-music"></i><p>暂无歌词</p></div>';
-            return;
-        }
-
-        this.currentLyrics.forEach((l, i) => {
-            const row = document.createElement('div');
-            row.className = 'lrc-line';
-            row.textContent = l.txt;
-            row.onclick = (e) => {
-                e.stopPropagation();
-                if (window.player) window.player.seek(l.t);
-            };
-            this.els.lyricsScroll.appendChild(row);
         });
+
+        // 更新背景
+        this.setBackground(coverUrl);
+
+        // Update Media Session
+        if ('mediaSession' in navigator) {
+            const coverUrl800 = getCoverUrlSync(song, 800);
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.name,
+                artist: song.singers,
+                album: song.album || '',
+                artwork: [
+                    { src: coverUrl, sizes: '300x300', type: 'image/jpeg' },
+                    { src: coverUrl800, sizes: '800x800', type: 'image/jpeg' }
+                ]
+            });
+        }
     }
 
-    highlightLyric(time) {
-        if (!this.currentLyrics.length) return;
+    setBackground(coverUrl) {
+        const nextLayer = this.activeBgLayer === 1 ? 2 : 1;
+        const nextEl = this.activeBgLayer === 1 ? this.els.bgLayer2 : this.els.bgLayer1;
+        const currEl = this.activeBgLayer === 1 ? this.els.bgLayer1 : this.els.bgLayer2;
 
-        let idx = -1;
-        for (let i = 0; i < this.currentLyrics.length; i++) {
-            if (time >= this.currentLyrics[i].t) idx = i;
-            else break;
-        }
+        nextEl.style.backgroundImage = `url(${coverUrl})`;
+        nextEl.classList.remove('fade-out');
+        currEl.classList.add('fade-out');
 
-        if (idx !== -1 && idx !== this.lastHighlightIdx) {
-            this.lastHighlightIdx = idx;
-
-            const rows = this.els.lyricsScroll.children;
-            const active = this.els.lyricsScroll.querySelector('.active');
-            if (active) active.classList.remove('active');
-
-            const curr = rows[idx];
-            if (curr && !curr.classList.contains('empty-state')) {
-                curr.classList.add('active');
-
-                if (this.els.lyricsScroll && !this.userScrolling) {
-                    const containerHeight = this.els.lyricsScroll.clientHeight;
-                    const lineHeight = curr.offsetHeight;
-                    const targetScroll = curr.offsetTop - containerHeight / 2 + lineHeight / 2;
-
-                    this.els.lyricsScroll.scrollTo({
-                        top: targetScroll,
-                        behavior: 'smooth'
-                    });
-                }
-            }
-        }
+        this.activeBgLayer = nextLayer;
     }
 
     renderPlaylist(queue, currentIndex) {
@@ -264,7 +181,7 @@ class UIManager {
                 <div class="empty-state">
                     <i class="fas fa-music"></i>
                     <p>播放列表为空</p>
-                    <p style="font-size: 12px; opacity: 0.6;">搜索歌曲并点击"+"添加</p>
+                    <p class="hint">搜索歌曲并点击"+"添加</p>
                 </div>
             `;
             return;
@@ -274,16 +191,23 @@ class UIManager {
 
         queue.forEach((song, i) => {
             const cover = getCoverUrlSync(song, 300);
+            const isActive = i === currentIndex;
 
             const div = document.createElement('div');
-            div.className = `playlist-item ${i === currentIndex ? 'playing' : ''}`;
+            div.className = `song-item ${isActive ? 'active' : ''}`;
             div.innerHTML = `
-                <img src="${cover}" class="item-cover" loading="lazy">
+                <div class="item-cover">
+                    <img src="${cover}" loading="lazy">
+                </div>
                 <div class="item-info">
                     <div class="item-title">${song.name}</div>
                     <div class="item-artist">${song.singers}</div>
                 </div>
-                <button class="remove-btn" data-idx="${i}"><i class="fas fa-times"></i></button>
+                <div class="item-actions">
+                    <button class="action-btn remove-btn" data-idx="${i}" title="移除">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             `;
 
             div.addEventListener('click', (e) => {
@@ -303,40 +227,6 @@ class UIManager {
             };
         });
     }
-
-    openDrawer(type) {
-        if (type === 'search') {
-            this.els.searchDrawer.classList.add('open');
-        } else if (type === 'playlist') {
-            this.els.playlistDrawer.classList.add('open');
-        }
-        this.els.drawerOverlay.classList.add('show');
-        document.body.style.overflow = 'hidden';
-        this.drawerOpen = true;
-
-        // 添加历史记录，使手机端返回键能关闭抽屉
-        history.pushState({ drawer: type }, '');
-    }
-
-    closeDrawer(fromPopState = false) {
-        if (!this.drawerOpen) return;
-
-        this.els.searchDrawer.classList.remove('open');
-        this.els.playlistDrawer.classList.remove('open');
-        this.els.drawerOverlay.classList.remove('show');
-        document.body.style.overflow = '';
-        this.drawerOpen = false;
-
-        // 如果不是由 popstate 触发的关闭（例如点击关闭按钮），则返回历史记录
-        if (!fromPopState && history.state?.drawer) {
-            history.back();
-        }
-    }
-
-    toggleView() {
-        this.els.coverView.classList.toggle('active');
-        this.els.lyricsView.classList.toggle('active');
-    }
 }
 
 // Player Manager Class
@@ -349,7 +239,6 @@ class PlayerManager {
         this.playMode = 'sequence'; // sequence, repeat_one, shuffle
 
         this.urlCache = new Map();
-        this.lyricsCache = new Map();
 
         this.loadFromStorage();
         this.initAudio();
@@ -383,8 +272,6 @@ class PlayerManager {
                 this.playMode = savedMode;
                 this.updateModeUI();
             }
-
-            // 不再自动恢复歌曲显示，等用户手动播放
         } catch (e) {
             console.warn('Failed to load from storage:', e);
         }
@@ -410,7 +297,6 @@ class PlayerManager {
 
         this.audio.ontimeupdate = () => {
             this.ui.updateProgress(this.audio.currentTime, this.audio.duration);
-            this.ui.highlightLyric(this.audio.currentTime);
         };
 
         this.audio.onplay = () => this.ui.setPlaying(true);
@@ -432,14 +318,11 @@ class PlayerManager {
         try {
             this.ui.updateSongInfo(song);
 
-            // Start loading lyrics immediately (in parallel with audio URL fetch)
-            this.loadLyrics(song.mid);
-
             // Get playURL
             const preferFlac = document.getElementById('quality-value')?.value === 'flac';
             const result = await getSongUrlWithFallback(song.mid, preferFlac);
 
-            // Race condition check: If loadingMid changed while we were waiting, abort
+            // Race condition check
             if (this.loadingMid !== song.mid) {
                 console.log(`Playback cancelled for ${song.name} (race condition)`);
                 return;
@@ -456,93 +339,21 @@ class PlayerManager {
             try {
                 await this.audio.play();
             } catch (playError) {
-                // Ignore AbortError which happens when switching songs properly
                 if (playError.name === 'AbortError') {
-                    console.log('Playback interrupted by new request (normal behavior)');
+                    console.log('Playback interrupted by new request');
                     return;
                 }
                 throw playError;
             }
 
-            // Lyrics loaded in parallel above
-
         } catch (error) {
             console.error('Play song failed:', error);
-            // Don't notify for AbortError at top level just in case
             if (error.name !== 'AbortError') {
                 this.ui.notify('播放失败: ' + error.message, 'error');
             }
         } finally {
-            // Clear loading state if this was the active load
             if (this.loadingMid === song.mid) {
                 this.loadingMid = null;
-            }
-        }
-
-        // Prefetch next song lyrics (fire and forget)
-        this.prefetchNextSong();
-    }
-
-    async prefetchNextSong() {
-        if (this.queue.length <= 1) return;
-
-        let nextIndex;
-        if (this.playMode === 'shuffle') {
-            nextIndex = (this.currentIndex + 1) % this.queue.length;
-        } else {
-            nextIndex = (this.currentIndex + 1) % this.queue.length;
-        }
-
-        const nextSong = this.queue[nextIndex];
-        if (nextSong && nextSong.mid && !this.lyricsCache.has(nextSong.mid)) {
-            try {
-                // Background fetch
-                getLyric(nextSong.mid).then(lyrics => {
-                    if (lyrics && (lyrics.lyric || lyrics.trans || lyrics.roma)) {
-                        this.lyricsCache.set(nextSong.mid, lyrics);
-                    }
-                });
-            } catch (e) {
-                // Ignore prefetch errors
-            }
-        }
-    }
-
-    async loadLyrics(mid, retryCount = 0) {
-        try {
-            if (this.lyricsCache.has(mid)) {
-                this.ui.renderLyrics(this.lyricsCache.get(mid));
-                return;
-            }
-
-            const lyrics = await getLyric(mid);
-
-            // Check if valid result
-            if (!lyrics || (!lyrics.lyric && !lyrics.trans && !lyrics.roma)) {
-                // Retry up to 3 times
-                if (retryCount < 3) {
-                    const delay = (retryCount + 1) * 1000;
-                    console.warn(`Lyrics empty, retrying (${retryCount + 1}/3) in ${delay}ms...`);
-                    setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
-                    return;
-                }
-            }
-
-            // Check if we are still playing the song we requested lyrics for
-            // We use currentIndex to check strictly, or just check recent request
-            this.lyricsCache.set(mid, lyrics);
-
-            // Only render if currently playing/loading this URL
-            if (this.ui.els.titleMini && this.ui.els.titleMini.textContent) {
-                // Optimization: Could check if current song matches mid
-                this.ui.renderLyrics(lyrics);
-            }
-        } catch (error) {
-            console.error('Load lyrics failed:', error);
-            if (retryCount < 3) {
-                const delay = (retryCount + 1) * 1000;
-                console.log(`Retrying load lyrics error (${retryCount + 1}/3) in ${delay}ms...`);
-                setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
             }
         }
     }
@@ -572,11 +383,10 @@ class PlayerManager {
     }
 
     addToQueue(song) {
-        // 检查是否已存在相同歌曲，如果存在则删除旧的
+        // 检查是否已存在相同歌曲
         const existingIndex = this.queue.findIndex(s => s.mid === song.mid);
         if (existingIndex !== -1) {
             this.queue.splice(existingIndex, 1);
-            // 调整当前播放索引
             if (existingIndex < this.currentIndex) {
                 this.currentIndex--;
             } else if (existingIndex === this.currentIndex) {
@@ -587,21 +397,18 @@ class PlayerManager {
         this.queue.push(song);
         this.saveQueue();
         this.ui.renderPlaylist(this.queue, this.currentIndex);
-        this.ui.notify(`已添加到播放列表: ${song.name}`);
+        this.ui.notify(`已添加: ${song.name}`);
     }
 
     playFromQueue(index) {
         if (index < 0 || index >= this.queue.length) return;
         this.currentIndex = index;
-        // 保存当前索引
         localStorage.setItem('qqmusic_currentIndex', index.toString());
 
-        // Immediate UI update for responsiveness
         const song = this.queue[index];
         this.ui.updateSongInfo(song);
         this.ui.renderPlaylist(this.queue, this.currentIndex);
 
-        // Debounced network request and playback
         this.playSongDebounced(song);
     }
 
@@ -664,7 +471,7 @@ class PlayerManager {
         this.updateModeUI();
 
         const modeNames = { sequence: '顺序播放', repeat_one: '单曲循环', shuffle: '随机播放' };
-        this.ui.notify(`切换到: ${modeNames[this.playMode]}`);
+        this.ui.notify(`${modeNames[this.playMode]}`);
     }
 
     updateModeUI() {
@@ -675,17 +482,14 @@ class PlayerManager {
             case 'sequence':
                 modeBtn.innerHTML = '<i class="fas fa-repeat"></i>';
                 modeBtn.title = '顺序播放';
-                modeBtn.classList.remove('active');
                 break;
             case 'repeat_one':
-                modeBtn.innerHTML = '<i class="fas fa-repeat"></i><span class="mode-badge">1</span>';
+                modeBtn.innerHTML = '<i class="fas fa-repeat"></i><span style="font-size:10px;position:absolute;">1</span>';
                 modeBtn.title = '单曲循环';
-                modeBtn.classList.add('active');
                 break;
             case 'shuffle':
                 modeBtn.innerHTML = '<i class="fas fa-shuffle"></i>';
                 modeBtn.title = '随机播放';
-                modeBtn.classList.add('active');
                 break;
         }
     }
@@ -699,6 +503,7 @@ class SearchManager {
         this.currentPage = 1;
         this.totalPages = 1;
         this.perPage = 60;
+        this.lastResults = [];
     }
 
     async search(keyword, page = 1) {
@@ -706,7 +511,13 @@ class SearchManager {
         this.currentPage = page;
 
         if (!keyword.trim()) {
-            this.ui.els.resultsList.innerHTML = '';
+            this.ui.els.resultsList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-music"></i>
+                    <p>输入关键词开始搜索</p>
+                </div>
+            `;
+            this.ui.els.pagination.style.display = 'none';
             return;
         }
 
@@ -720,13 +531,12 @@ class SearchManager {
 
             if (!results || results.length === 0) {
                 this.ui.els.resultsList.innerHTML = '<div class="empty-state"><p>未找到结果</p></div>';
+                this.ui.els.pagination.style.display = 'none';
                 return;
             }
 
-            // Render results
+            this.lastResults = results;
             this.renderResults(results);
-
-            // Update pagination
             this.totalPages = Math.ceil(results.length / this.perPage);
             this.updatePagination();
 
@@ -740,30 +550,22 @@ class SearchManager {
     renderResults(results) {
         this.ui.els.resultsList.innerHTML = '';
 
-        // Paginate results
-        const start = (this.currentPage - 1) * this.perPage;
-        const end = start + this.perPage;
-        const pageResults = results.slice(start, end);
-
-        pageResults.forEach(song => {
+        results.forEach(song => {
             const singers = song.singer?.map(s => s.name).join(', ') || '';
-            const isVip = song.pay?.pay_play !== 0;
-
             const cover = getCoverUrlSync({ album_mid: song.album?.mid, vs: song.vs }, 300);
 
             const item = document.createElement('div');
-            item.className = 'result-item';
+            item.className = 'song-item';
             item.innerHTML = `
-                <img src="${cover}" class="item-cover" loading="lazy">
+                <div class="item-cover">
+                    <img src="${cover}" loading="lazy">
+                </div>
                 <div class="item-info">
                     <div class="item-title">${song.title}</div>
                     <div class="item-artist">${singers}</div>
                 </div>
                 <div class="item-actions">
-                    <button class="action-btn play-action" title="立即播放">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <button class="action-btn add-action add-next" title="添加到播放列表">
+                    <button class="action-btn add-action" title="添加到列表">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
@@ -776,27 +578,20 @@ class SearchManager {
                 album: song.album?.name || '',
                 album_mid: song.album?.mid || '',
                 vs: song.vs || [],
-                vip: isVip,
+                vip: song.pay?.pay_play !== 0,
                 interval: song.interval || 0
             };
 
-            // Play button click
-            item.querySelector('.play-action').onclick = (e) => {
-                e.stopPropagation();
-                window.player.addToQueue(songData);
-                window.player.playFromQueue(window.player.queue.length - 1);
-            };
-
-            // Add button click
-            item.querySelector('.add-action').onclick = (e) => {
-                e.stopPropagation();
-                window.player.addToQueue(songData);
-            };
-
-            // 整行点击播放
+            // 点击整行播放
             item.onclick = () => {
                 window.player.addToQueue(songData);
                 window.player.playFromQueue(window.player.queue.length - 1);
+            };
+
+            // 点击+添加到列表
+            item.querySelector('.add-action').onclick = (e) => {
+                e.stopPropagation();
+                window.player.addToQueue(songData);
             };
 
             this.ui.els.resultsList.appendChild(item);
@@ -843,7 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Make player globally accessible
     window.player = player;
 
-    // Event Listeners
+    // Event Listeners - Controls
     document.getElementById('play-btn').onclick = () => player.togglePlay();
     document.getElementById('prev-btn').onclick = () => player.prev();
     document.getElementById('next-btn').onclick = () => player.next();
@@ -870,33 +665,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.seek(player.audio.duration * percent);
     };
 
-    // Cover/Lyrics toggle
-    // 点击封面切换到歌词
-    ui.els.albumCover.onclick = () => ui.toggleView();
-    // 点击封面视图区域（非封面图片）也切换
-    ui.els.coverView.onclick = (e) => {
-        // 如果点击的不是封面图片本身，也切换到歌词
-        if (e.target !== ui.els.albumCover) {
-            ui.toggleView();
-        }
-    };
-    // 点击歌词视图背景切换回封面（歌词行点击已单独处理并阻止冒泡）
-    ui.els.lyricsView.onclick = () => ui.toggleView();
-
-    // Drawer controls
-    document.getElementById('search-btn').onclick = () => ui.openDrawer('search');
-    document.getElementById('playlist-btn').onclick = () => ui.openDrawer('playlist');
-    document.getElementById('close-drawer').onclick = () => ui.closeDrawer();
-    document.getElementById('close-playlist').onclick = () => ui.closeDrawer();
-    ui.els.drawerOverlay.onclick = () => ui.closeDrawer();
-
-    // 监听手机端返回键（popstate 事件）
-    window.addEventListener('popstate', (event) => {
-        if (ui.drawerOpen) {
-            ui.closeDrawer(true); // true 表示由 popstate 触发
-        }
-    });
-
     // Search
     const searchInput = document.getElementById('search-input');
     const debouncedSearch = debounce((keyword) => {
@@ -918,7 +686,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('search-clear').onclick = () => {
         searchInput.value = '';
         document.getElementById('search-clear').style.display = 'none';
-        ui.els.resultsList.innerHTML = '';
+        ui.els.resultsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-music"></i>
+                <p>输入关键词开始搜索</p>
+            </div>
+        `;
     };
 
     document.getElementById('prev-page').onclick = () => search.prevPage();
@@ -938,9 +711,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('Credential expired, attempting refresh...');
             const refreshed = await refreshCredential();
             if (refreshed) {
-                ui.notify('凭证已自动刷新');
+                ui.notify('凭证已刷新');
             } else {
-                ui.notify('凭证已过期，部分功能可能受限', 'error');
+                ui.notify('凭证已过期', 'error');
             }
         }
     } catch (e) {

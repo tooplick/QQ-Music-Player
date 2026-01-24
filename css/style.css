@@ -956,8 +956,8 @@ body.playing .bg-layer {
     overflow: hidden;
     /* 定义圆的半径 - 缩小半径 */
     --lyric-radius: 90vh;
-    /* 定义圆心各行距离左侧的偏移 (圆边缘的位置) - 居中大约 45vw */
-    --lyric-left: 45vw;
+    /* 定义圆心各行距离左侧的偏移 (圆边缘的位置) - 稍微左移 */
+    --lyric-left: 40vw;
 }
 
 .lyrics-scroll::-webkit-scrollbar {

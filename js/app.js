@@ -7,6 +7,7 @@ import { searchByType } from './api/search.js';
 import { getSongUrlWithFallback } from './api/song.js';
 import { getCredential } from './api/credential.js';
 import { checkExpired, refreshCredential } from './api/login.js';
+import { getLyric } from './api/lyric.js';
 import { getValidCoverUrl, getCoverUrlSync, getCoverCandidates, DEFAULT_COVER } from './utils/cover.js';
 
 // Utility functions
@@ -37,6 +38,7 @@ class UIManager {
             thumbImg: document.getElementById('thumb-img'),
             barTitle: document.getElementById('bar-title'),
             barArtist: document.getElementById('bar-artist'),
+            nowPlaying: document.querySelector('.now-playing'),
 
             // Controls
             playBtn: document.getElementById('play-btn'),
@@ -58,6 +60,21 @@ class UIManager {
 
             // Playlist
             playlistList: document.getElementById('playlist-list'),
+
+            // Immersive Player
+            immersivePlayer: document.getElementById('immersive-player'),
+            immersiveClose: document.getElementById('immersive-close'),
+            immersiveCoverImg: document.getElementById('immersive-cover-img'),
+            immersiveTitle: document.getElementById('immersive-title'),
+            immersiveArtist: document.getElementById('immersive-artist'),
+            lyricsScroll: document.getElementById('lyrics-scroll'),
+            immersiveCurrent: document.getElementById('immersive-current'),
+            immersiveTotal: document.getElementById('immersive-total'),
+            immersiveProgressBar: document.getElementById('immersive-progress-bar'),
+            immersiveProgressFill: document.getElementById('immersive-progress-fill'),
+            immersivePlay: document.getElementById('immersive-play'),
+            immersivePrev: document.getElementById('immersive-prev'),
+            immersiveNext: document.getElementById('immersive-next'),
 
             // Notifications
             notificationContainer: document.getElementById('notification-container')
@@ -229,6 +246,136 @@ class UIManager {
                 window.player.removeFromQueue(idx);
             };
         });
+    }
+
+    // ========== 沉浸式播放页 ==========
+
+    openImmersivePlayer() {
+        this.els.immersivePlayer.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeImmersivePlayer() {
+        this.els.immersivePlayer.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    updateImmersivePlayer(song) {
+        // 更新封面
+        const coverCandidates = getCoverCandidates(song, 500);
+        this.els.immersiveCoverImg.src = coverCandidates[0];
+        this.els.immersiveCoverImg._coverCandidates = coverCandidates;
+        this.els.immersiveCoverImg.dataset.coverIndex = '0';
+        this.els.immersiveCoverImg.onerror = function () {
+            const currentIndex = parseInt(this.dataset.coverIndex) || 0;
+            const nextIndex = currentIndex + 1;
+            if (nextIndex < this._coverCandidates.length) {
+                this.dataset.coverIndex = nextIndex;
+                this.src = this._coverCandidates[nextIndex];
+            }
+        };
+
+        // 更新歌曲信息
+        this.els.immersiveTitle.textContent = song.name;
+        this.els.immersiveArtist.textContent = song.singers;
+    }
+
+    updateImmersiveProgress(currentTime, totalTime, percent) {
+        this.els.immersiveCurrent.textContent = formatTime(currentTime);
+        this.els.immersiveTotal.textContent = formatTime(totalTime);
+        this.els.immersiveProgressFill.style.width = `${percent * 100}%`;
+    }
+
+    setImmersivePlaying(isPlaying) {
+        const icon = this.els.immersivePlay.querySelector('i');
+        icon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+    }
+
+    renderLyrics(lyrics) {
+        if (!lyrics || !lyrics.lyric) {
+            this.els.lyricsScroll.innerHTML = `
+                <div class="lyrics-placeholder">
+                    <i class="fas fa-music"></i>
+                    <p>暂无歌词</p>
+                </div>
+            `;
+            this.currentLyrics = [];
+            return;
+        }
+
+        // 解析歌词
+        const lines = this.parseLyrics(lyrics.lyric);
+        this.currentLyrics = lines;
+
+        if (lines.length === 0) {
+            this.els.lyricsScroll.innerHTML = `
+                <div class="lyrics-placeholder">
+                    <i class="fas fa-music"></i>
+                    <p>暂无歌词</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 渲染歌词行
+        this.els.lyricsScroll.innerHTML = lines.map((line, i) =>
+            `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text || '♪'}</div>`
+        ).join('');
+
+        this.lastHighlightIdx = -1;
+    }
+
+    parseLyrics(lyricText) {
+        const lines = [];
+        const regex = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/g;
+        let match;
+
+        while ((match = regex.exec(lyricText)) !== null) {
+            const minutes = parseInt(match[1]);
+            const seconds = parseInt(match[2]);
+            const ms = parseInt(match[3].padEnd(3, '0'));
+            const time = minutes * 60 + seconds + ms / 1000;
+            const text = match[4].trim();
+            lines.push({ time, text });
+        }
+
+        return lines.sort((a, b) => a.time - b.time);
+    }
+
+    highlightLyric(currentTime) {
+        if (!this.currentLyrics || this.currentLyrics.length === 0) return;
+
+        // 找到当前歌词行
+        let activeIdx = -1;
+        for (let i = this.currentLyrics.length - 1; i >= 0; i--) {
+            if (currentTime >= this.currentLyrics[i].time) {
+                activeIdx = i;
+                break;
+            }
+        }
+
+        if (activeIdx === this.lastHighlightIdx) return;
+        this.lastHighlightIdx = activeIdx;
+
+        // 更新高亮
+        const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
+        lines.forEach((line, i) => {
+            line.classList.toggle('active', i === activeIdx);
+        });
+
+        // 滚动到当前歌词
+        if (activeIdx >= 0 && lines[activeIdx]) {
+            const container = this.els.lyricsScroll;
+            const line = lines[activeIdx];
+            const containerHeight = container.clientHeight;
+            const lineTop = line.offsetTop;
+            const lineHeight = line.offsetHeight;
+
+            container.scrollTo({
+                top: lineTop - containerHeight / 2 + lineHeight / 2,
+                behavior: 'smooth'
+            });
+        }
     }
 }
 
@@ -778,6 +925,87 @@ document.addEventListener('DOMContentLoaded', async () => {
             player.clearQueue();
         }
     };
+
+    // ========== 沉浸式播放页事件 ==========
+
+    // 点击控制栏封面/标题区域打开沉浸式播放页
+    ui.els.nowPlaying.onclick = () => {
+        if (player.queue.length > 0 && player.currentIndex >= 0) {
+            const currentSong = player.queue[player.currentIndex];
+            ui.updateImmersivePlayer(currentSong);
+            ui.openImmersivePlayer();
+
+            // 加载歌词
+            loadLyricsForSong(currentSong.mid);
+        }
+    };
+
+    // 关闭按钮
+    ui.els.immersiveClose.onclick = () => {
+        ui.closeImmersivePlayer();
+    };
+
+    // 沉浸式播放页控制按钮
+    ui.els.immersivePlay.onclick = () => player.togglePlay();
+    ui.els.immersivePrev.onclick = () => player.prev();
+    ui.els.immersiveNext.onclick = () => player.next();
+
+    // 沉浸式进度条点击
+    ui.els.immersiveProgressBar.onclick = (e) => {
+        const rect = ui.els.immersiveProgressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        player.seek(player.audio.duration * percent);
+    };
+
+    // 歌词点击跳转
+    ui.els.lyricsScroll.onclick = (e) => {
+        if (e.target.classList.contains('lyric-line')) {
+            const time = parseFloat(e.target.dataset.time);
+            if (!isNaN(time)) {
+                player.seek(time);
+            }
+        }
+    };
+
+    // 歌词加载函数
+    async function loadLyricsForSong(mid) {
+        try {
+            const lyrics = await getLyric(mid);
+            ui.renderLyrics(lyrics);
+        } catch (e) {
+            console.error('Failed to load lyrics:', e);
+            ui.renderLyrics(null);
+        }
+    }
+
+    // 歌曲切换时更新沉浸式播放页
+    player.audio.addEventListener('loadstart', () => {
+        if (ui.els.immersivePlayer.classList.contains('active')) {
+            if (player.currentIndex >= 0 && player.queue[player.currentIndex]) {
+                const song = player.queue[player.currentIndex];
+                ui.updateImmersivePlayer(song);
+                loadLyricsForSong(song.mid);
+            }
+        }
+    });
+
+    // 播放状态变化时更新沉浸式播放图标
+    player.audio.addEventListener('play', () => {
+        ui.setImmersivePlaying(true);
+    });
+    player.audio.addEventListener('pause', () => {
+        ui.setImmersivePlaying(false);
+    });
+
+    // 播放进度更新沉浸式页面
+    player.audio.addEventListener('timeupdate', () => {
+        const current = player.audio.currentTime;
+        const total = player.audio.duration || 0;
+        const percent = total > 0 ? current / total : 0;
+
+        ui.updateImmersiveProgress(current, total, percent);
+        ui.highlightLyric(current);
+    });
 
     // Check for expired credential
     try {

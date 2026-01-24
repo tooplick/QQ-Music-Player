@@ -851,3 +851,261 @@ body.playing .bg-layer {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+/* ============================================
+   Immersive Player
+   ============================================ */
+
+.immersive-player {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(100%);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.immersive-player.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.immersive-header {
+    padding: 20px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.immersive-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    padding: 10px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.immersive-close:hover {
+    color: var(--text-primary);
+}
+
+.immersive-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 40px;
+    overflow: hidden;
+}
+
+.immersive-cover {
+    width: 280px;
+    height: 280px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+}
+
+.immersive-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.immersive-info {
+    text-align: center;
+    margin-top: 24px;
+    flex-shrink: 0;
+}
+
+.immersive-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.immersive-artist {
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+.immersive-lyrics {
+    flex: 1;
+    width: 100%;
+    max-width: 600px;
+    margin-top: 32px;
+    overflow: hidden;
+    position: relative;
+    mask-image: linear-gradient(transparent, black 15%, black 85%, transparent);
+    -webkit-mask-image: linear-gradient(transparent, black 15%, black 85%, transparent);
+}
+
+.lyrics-scroll {
+    height: 100%;
+    overflow-y: auto;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.lyrics-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.lyrics-placeholder {
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 40px;
+}
+
+.lyrics-placeholder i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.lyric-line {
+    padding: 12px 0;
+    font-size: 16px;
+    color: var(--text-tertiary);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.lyric-line:hover {
+    color: var(--text-secondary);
+}
+
+.lyric-line.active {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.immersive-controls {
+    padding: 24px 40px 40px;
+    flex-shrink: 0;
+}
+
+.immersive-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.immersive-time {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+}
+
+.immersive-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.immersive-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.immersive-progress-bar:hover .immersive-progress-fill {
+    background: var(--accent-hover);
+}
+
+.immersive-btns {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+}
+
+.immersive-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 24px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.immersive-btn:hover {
+    color: var(--accent);
+    transform: scale(1.1);
+}
+
+.immersive-btn.play {
+    width: 64px;
+    height: 64px;
+    background: var(--accent);
+    border-radius: 50%;
+    font-size: 24px;
+}
+
+.immersive-btn.play:hover {
+    background: var(--accent-hover);
+    color: #fff;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .immersive-content {
+        padding: 0 20px;
+    }
+
+    .immersive-cover {
+        width: 200px;
+        height: 200px;
+    }
+
+    .immersive-title {
+        font-size: 18px;
+    }
+
+    .immersive-artist {
+        font-size: 14px;
+    }
+
+    .lyric-line {
+        font-size: 14px;
+    }
+
+    .lyric-line.active {
+        font-size: 18px;
+    }
+
+    .immersive-controls {
+        padding: 20px 20px 32px;
+    }
+
+    .immersive-btns {
+        gap: 24px;
+    }
+
+    .immersive-btn.play {
+        width: 56px;
+        height: 56px;
+    }
+}
+
+/* Make now-playing clickable */
+.now-playing {
+    cursor: pointer;
+}

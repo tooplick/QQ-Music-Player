@@ -162,6 +162,52 @@
         </div>
     </footer>
 
+    <!-- 沉浸式播放页 -->
+    <div class="immersive-player" id="immersive-player">
+        <div class="immersive-header">
+            <button class="immersive-close" id="immersive-close">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+        <div class="immersive-content">
+            <div class="immersive-cover">
+                <img src="" alt="Cover" id="immersive-cover-img">
+            </div>
+            <div class="immersive-info">
+                <div class="immersive-title" id="immersive-title">歌曲名称</div>
+                <div class="immersive-artist" id="immersive-artist">歌手</div>
+            </div>
+            <div class="immersive-lyrics" id="immersive-lyrics">
+                <div class="lyrics-scroll" id="lyrics-scroll">
+                    <div class="lyrics-placeholder">
+                        <i class="fas fa-music"></i>
+                        <p>暂无歌词</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="immersive-controls">
+            <div class="immersive-progress">
+                <span class="immersive-time" id="immersive-current">0:00</span>
+                <div class="immersive-progress-bar" id="immersive-progress-bar">
+                    <div class="immersive-progress-fill" id="immersive-progress-fill"></div>
+                </div>
+                <span class="immersive-time" id="immersive-total">0:00</span>
+            </div>
+            <div class="immersive-btns">
+                <button class="immersive-btn" id="immersive-prev">
+                    <i class="fas fa-backward-step"></i>
+                </button>
+                <button class="immersive-btn play" id="immersive-play">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="immersive-btn" id="immersive-next">
+                    <i class="fas fa-forward-step"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 通知容器 -->
     <div class="notification-container" id="notification-container"></div>
 

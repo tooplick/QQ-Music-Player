@@ -76,6 +76,7 @@ class UIManager {
         this.currentPage = 'search';
 
         this.initNavigation();
+        this.initImmersivePlayer();
     }
 
     initNavigation() {
@@ -366,101 +367,64 @@ class UIManager {
 
     stopRenderLoop() {
         if (this.renderLoopId) {
-            cancelAnimationFrame(this.renderLoopId);
-            this.renderLoopId = null;
-        }
-    }
-
-    renderFrame() {
-        if (!this.lyricElements || this.lyricElements.length === 0) return;
-
-        // 缓动逻辑：逼近目标
-        // 如果是触摸滑动中，currentRenderIndex 已经在 touchmove 中更新了，不需要缓动
-        if (!this.userScrolling) {
-            const diff = this.targetRenderIndex - this.currentRenderIndex;
-            if (Math.abs(diff) > 0.001) {
-                this.currentRenderIndex += diff * 0.1; // 缓动因子
-            } else {
-                this.currentRenderIndex = this.targetRenderIndex;
+            // 初始化沉浸式播放页逻辑
+            initImmersivePlayer() {
+                this.updateImmersiveLayout();
+                window.addEventListener('resize', () => {
+                    // 使用 requestAnimationFrame 防抖
+                    if (this.resizeTimeout) cancelAnimationFrame(this.resizeTimeout);
+                    this.resizeTimeout = requestAnimationFrame(() => this.updateImmersiveLayout());
+                });
             }
-        }
 
-        const angleStep = 6;
-        const bias = -1; // 视觉偏移
+            updateImmersiveLayout() {
+                const h = window.innerHeight;
+                // 动态半径：高度越高，半径越小
+                // 假设基准高度 800px 时半径 800px
+                // 公式：Radius = K / h
+                // K = 800 * 800 = 640000
+                let radius = 640000 / Math.max(400, h);
 
-        // 只渲染视野附近的行（性能优化关键）
-        // 假设视野能覆盖上下 20 行（足够宽裕了）
-        const visibleRange = 25;
-        const centerIndex = Math.floor(this.currentRenderIndex);
-        const startIndex = Math.max(0, centerIndex - visibleRange);
-        const endIndex = Math.min(this.lyricElements.length, centerIndex + visibleRange);
+                // 限制半径范围，避免极端情况
+                radius = Math.max(400, Math.min(1200, radius));
 
-        // 1. 隐藏范围外的元素 (如果之前是可见的)
-        // 简单起见，可以遍历所有元素，或者维护一个 'visibleSet'
-        // 为了极致性能，我们可以简单地把所有元素设为 hidden，再把范围内的设为 visible
-        // 但 transform 操作比 visibility 重。
-        // 优化方案：只遍历 visibleRange 内的元素进行 transform 更新。
-        // 对于范围外的，由于 visibility 属性是我们设置的，它们应该已经被隐藏了。
-        // 只有当滚动跨度很大时才需要全量清理。通常我们逐帧更新，这就够了。
+                // 更新 CSS 变量
+                this.els.lyricsScroll.style.setProperty('--lyric-radius', `${radius}px`);
 
-        // 遍历所有元素开销太大，我们只更新需要的。
-        // 但是之前可见的现在不可见了怎么办？
-        // 可以简单遍历 startIndex 到 endIndex，设置样式。
-        // 为了防止残留，我们可以记录上一帧的 startIndex 和 endIndex，把移出去的部分隐藏。
-        // 这里偷懒一点，遍历稍大一点的范围，或者每隔几十帧做一次全量清理？
-        // 其实对于 100 行以内的歌词，全部遍历这种简单的计算开销很小 (JS很快)，
-        // 开销大的是 layout。如果 element 不可见 (display:none 或 visibility:hidden)，
-        // 并且不改变 transform，浏览器应该不会重排。
+                // 动态计算 angleStep 以保持行间距一致
+                // 假设理想行间距（含 margin）约 80px (根据字号34px估算)
+                // angle (deg) = (arcLength / radius) * (180 / PI)
+                const spacing = 80;
+                this.currentAngleStep = (spacing / radius) * 57.2958;
+            }
 
-        // 让我们还是遍历所有行吧，现在的 JS 引擎对于几百次循环是微秒级的。
-        // 关键是：对于可以跳过的行，不要修改 DOM !
+            renderFrame() {
+                if (!this.lyricElements || this.lyricElements.length === 0) return;
 
-        for (let i = 0; i < this.lyricElements.length; i++) {
-            // 距离视觉中心的距离
-            const offset = i - this.currentRenderIndex + bias;
-
-            // 如果在可视范围内
-            if (Math.abs(offset) < visibleRange) {
-                const el = this.lyricElements[i];
-                const angle = offset * angleStep;
-                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
-
-                // 仅当数值有显著变化时才写入 DOM ? 
-                // 浏览器其实会做 diff。我们直接写 transform。
-                el.style.transform = `rotate(${angle}deg)`;
-                el.style.opacity = opacity;
-
-                // 确保可见
-                if (el.style.visibility !== 'visible') {
-                    el.style.visibility = 'visible';
+                // 缓动逻辑：逼近目标
+                // 如果是触摸滑动中，currentRenderIndex 已经在 touchmove 中更新了，不需要缓动
+                if (!this.userScrolling) {
+                    const diff = this.targetRenderIndex - this.currentRenderIndex;
+                    if (Math.abs(diff) > 0.001) {
+                        this.currentRenderIndex += diff * 0.1; // 缓动因子
+                    } else {
+                        this.currentRenderIndex = this.targetRenderIndex;
+                    }
                 }
-            } else {
-                // 超出范围，隐藏
-                // 检查是否已经是 hidden，避免重复写入导致 Recalculate Style
-                if (this.lyricElements[i].style.visibility !== 'hidden') {
-                    this.lyricElements[i].style.visibility = 'hidden';
-                }
+
+                // 清除之前的恢复定时器
+                clearTimeout(this.scrollTimeout);
+                // 这里不自动恢复，直到用户点击或者其他操作（根据用户需求：滑动时不要自动定位）
+                // 但为了防止永远不恢复，我们设置一个较长的超时，或者在播放新的歌词行时检查
+                // 如果用户说“滑动时不要自动定位”，通常意味着只要我在交互，就别动。
+                // 我们保留一个 长时间的 timeout 或者仅仅 relying on click/manual reset
+                // 为了体验，我们设定5秒无操作后恢复
+                this.scrollTimeout = setTimeout(() => {
+                    this.userScrolling = false;
+                }, 5000);
             }
         }
     }
-
-    // 设置用户滚动状态
-    setUserScrolling(scrolling) {
-        this.userScrolling = scrolling;
-        if (scrolling) {
-            // 清除之前的恢复定时器
-            clearTimeout(this.scrollTimeout);
-            // 这里不自动恢复，直到用户点击或者其他操作（根据用户需求：滑动时不要自动定位）
-            // 但为了防止永远不恢复，我们设置一个较长的超时，或者在播放新的歌词行时检查
-            // 如果用户说“滑动时不要自动定位”，通常意味着只要我在交互，就别动。
-            // 我们保留一个 长时间的 timeout 或者仅仅 relying on click/manual reset
-            // 为了体验，我们设定5秒无操作后恢复
-            this.scrollTimeout = setTimeout(() => {
-                this.userScrolling = false;
-            }, 5000);
-        }
-    }
-}
 
 // Player Manager Class
 class PlayerManager {

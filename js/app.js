@@ -322,28 +322,25 @@ class UIManager {
         if (activeIdx === this.lastHighlightIdx) return;
         this.lastHighlightIdx = activeIdx;
 
-        // 更新高亮
+        // 更新高亮和弧形布局
         const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
+        const angleStep = 8; // 每行间隔角度
+
         lines.forEach((line, i) => {
-            line.classList.toggle('active', i === activeIdx);
+            const isActive = i === activeIdx;
+            line.classList.toggle('active', isActive);
+
+            // 计算相对于当前行的偏移
+            const offset = i - activeIdx;
+            // 计算旋转角度
+            const angle = offset * angleStep;
+            // 计算透明度（越远越透明）
+            const opacity = Math.max(0.1, 1 - Math.abs(offset) * 0.15);
+
+            // 应用变换
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.opacity = isActive ? 1 : opacity;
         });
-
-        // 检查是否用户正在滚动（3秒内不自动滚动）
-        if (this.userScrolling) return;
-
-        // 滚动到当前歌词
-        if (activeIdx >= 0 && lines[activeIdx]) {
-            const container = this.els.lyricsScroll;
-            const line = lines[activeIdx];
-            const containerHeight = container.clientHeight;
-            const lineTop = line.offsetTop;
-            const lineHeight = line.offsetHeight;
-
-            container.scrollTo({
-                top: lineTop - containerHeight / 2 + lineHeight / 2,
-                behavior: 'smooth'
-            });
-        }
     }
 
     // 设置用户滚动状态

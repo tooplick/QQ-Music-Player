@@ -940,22 +940,22 @@ body.playing .bg-layer {
 .immersive-lyrics-full {
     flex: 1;
     width: 100%;
+    height: 100%;
     overflow: hidden;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    mask-image: linear-gradient(transparent 5%, black 25%, black 75%, transparent 95%);
-    -webkit-mask-image: linear-gradient(transparent 5%, black 25%, black 75%, transparent 95%);
 }
 
 .lyrics-scroll {
-    height: 100%;
+    position: absolute;
     width: 100%;
-    overflow-y: auto;
-    padding: 40vh 40px;
-    text-align: center;
-    scroll-behavior: smooth;
+    height: 100%;
+    overflow: hidden;
+    /* 圆心在左侧中心外 */
+    --circle-center-x: -30vw;
+    --circle-radius: 80vw;
 }
 
 .lyrics-scroll::-webkit-scrollbar {
@@ -980,25 +980,29 @@ body.playing .bg-layer {
 }
 
 .lyric-line {
-    padding: 16px 20px;
-    font-size: 22px;
+    position: absolute;
+    left: calc(var(--circle-center-x) + var(--circle-radius));
+    top: 50%;
+    transform-origin: calc(var(--circle-center-x) * -1) 0;
+    white-space: nowrap;
+    padding: 8px 20px;
+    font-size: 20px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.35);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    color: rgba(255, 255, 255, 0.3);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     letter-spacing: 1px;
 }
 
 .lyric-line:hover {
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .lyric-line.active {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
     color: #ffffff;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-    transform: scale(1.05);
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
 }
 
 .immersive-controls {

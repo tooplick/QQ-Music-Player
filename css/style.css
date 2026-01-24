@@ -970,8 +970,8 @@ body.playing .bg-layer {
     top: 50%;
     /* 水平位置固定 */
     left: var(--lyric-left);
-    /* 旋转中心在左侧远端：圆心位置 = 当前left - 半径 */
-    transform-origin: calc(var(--lyric-radius) * -1) 50%;
+    /* 移除之前的 transform-origin hack，改为中心旋转，位置由 JS translate 控制 */
+    transform-origin: center center;
 
     white-space: nowrap;
     padding: 12px 20px;

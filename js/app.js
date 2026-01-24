@@ -383,7 +383,7 @@ class UIManager {
             }
         }
 
-        const angleStep = 4.5;
+        const angleStep = 6;
         const bias = -1; // 视觉偏移
 
         // 只渲染视野附近的行（性能优化关键）
@@ -421,7 +421,7 @@ class UIManager {
             if (Math.abs(offset) < visibleRange) {
                 const el = this.lyricElements[i];
                 const angle = offset * angleStep;
-                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.1);
+                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
 
                 // 仅当数值有显著变化时才写入 DOM ? 
                 // 浏览器其实会做 diff。我们直接写 transform。

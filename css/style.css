@@ -1188,6 +1188,10 @@ body.playing .bg-layer {
         transform-style: flat;
         padding: 40vh 16px;
         overflow-y: auto;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .lyric-line {

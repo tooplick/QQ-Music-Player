@@ -14,7 +14,7 @@ import { apiRequest } from './request.js';
  * @returns {Promise<Object>} - { lyric, trans, roma }
  */
 export async function getLyric(value, options = {}) {
-    const { qrc = true, trans = true, roma = true } = options;
+    const { qrc = false, trans = true, roma = true } = options;
 
     const params = {
         crypt: 1, // Enable crypt

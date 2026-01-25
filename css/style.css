@@ -1207,6 +1207,131 @@ body.playing .bg-layer {
 }
 
 /* ============================================
+   Detail Page Styles
+   ============================================ */
+
+.detail-page {
+    padding: 0 !important;
+}
+
+.detail-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    padding: 40px 32px 32px;
+    background: linear-gradient(180deg, rgba(29, 185, 84, 0.3) 0%, transparent 100%);
+    position: relative;
+}
+
+.detail-header .back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.detail-header .back-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    transform: scale(1.1);
+}
+
+.detail-cover {
+    width: 200px;
+    height: 200px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.detail-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.detail-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-info h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-meta {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.detail-actions .primary-btn {
+    padding: 12px 28px;
+    font-size: 15px;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-actions .primary-btn i {
+    font-size: 14px;
+}
+
+#detail-list {
+    padding: 0 32px 32px;
+}
+
+@media (max-width: 768px) {
+    .detail-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 60px 20px 24px;
+    }
+
+    .detail-cover {
+        width: 160px;
+        height: 160px;
+    }
+
+    .detail-info h1 {
+        font-size: 22px;
+    }
+
+    .detail-actions {
+        justify-content: center;
+    }
+
+    #detail-list {
+        padding: 0 16px 16px;
+    }
+}
+
+/* ============================================
    Playlist Manager Styles
    ============================================ */
 
@@ -1265,28 +1390,69 @@ body.playing .bg-layer {
 
 .playlist-card {
     background: var(--bg-card);
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-lg);
     padding: 16px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     position: relative;
     border: 1px solid transparent;
 }
 
 .playlist-card:hover {
     background: var(--bg-hover);
-    transform: translateY(-4px);
+    transform: translateY(-6px);
     border-color: var(--border-color);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
 .playlist-card .card-cover {
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
     margin-bottom: 12px;
     background: rgba(0, 0, 0, 0.2);
     position: relative;
+}
+
+.playlist-card .card-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.playlist-card:hover .card-cover::after {
+    opacity: 1;
+}
+
+.playlist-card .card-cover .play-overlay {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 48px;
+    height: 48px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(29, 185, 84, 0.4);
+}
+
+.playlist-card:hover .card-cover .play-overlay {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .playlist-card .card-cover img {
@@ -1294,10 +1460,6 @@ body.playing .bg-layer {
     height: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
-}
-
-.playlist-card:hover .card-cover img {
-    transform: scale(1.05);
 }
 
 .playlist-card .card-title {

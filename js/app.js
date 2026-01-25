@@ -544,6 +544,16 @@ class UIManager {
     }
 
     renderLyrics(lyrics) {
+        // Get toggle elements
+        const toggleContainer = document.getElementById('lyrics-toggle-container');
+        const toggleBtn = document.getElementById('lyrics-toggle-btn');
+        const toggleLabel = document.getElementById('lyrics-toggle-label');
+
+        // Reset toggle state
+        this.showSubText = false;
+        this.subTextType = 'trans'; // 'trans' or 'roma'
+        toggleBtn?.classList.remove('active');
+
         if (!lyrics || !lyrics.lyric) {
             // Show "暂无歌词" as a single active lyric line
             this.els.lyricsScroll.innerHTML = '';
@@ -556,16 +566,43 @@ class UIManager {
             this.els.lyricsScroll.appendChild(el);
             this.currentLyrics = [];
             this.lyricElements = [];
+            if (toggleContainer) toggleContainer.style.display = 'none';
             return;
         }
 
-        // 解析歌词
-        const lines = this.parseLyrics(lyrics.lyric);
-        // 使用 filter 过滤空行，这步很重要，后续逻辑都基于 filter 后的数组
-        this.currentLyrics = lines.filter(l => l.text);
+        // Parse lyrics
+        const mainLines = this.parseLyrics(lyrics.lyric).filter(l => l.text);
+        const transLines = lyrics.trans ? this.parseLyrics(lyrics.trans).filter(l => l.text) : [];
+        const romaLines = lyrics.roma ? this.parseLyrics(lyrics.roma).filter(l => l.text) : [];
 
-        if (this.currentLyrics.length === 0) {
-            // Show "暂无歌词" as a single active lyric line
+        // Store parsed trans/roma for lookup
+        this.transMap = new Map(transLines.map(l => [l.time, l.text]));
+        this.romaMap = new Map(romaLines.map(l => [l.time, l.text]));
+
+        // Determine what's available
+        const hasTrans = transLines.length > 0;
+        const hasRoma = romaLines.length > 0;
+
+        // Show/hide toggle button
+        if (toggleContainer) {
+            if (hasTrans || hasRoma) {
+                toggleContainer.style.display = 'block';
+                // Set default label based on availability
+                if (hasTrans) {
+                    this.subTextType = 'trans';
+                    toggleLabel.textContent = '译';
+                } else {
+                    this.subTextType = 'roma';
+                    toggleLabel.textContent = '音';
+                }
+            } else {
+                toggleContainer.style.display = 'none';
+            }
+        }
+
+        this.currentLyrics = mainLines;
+
+        if (mainLines.length === 0) {
             this.els.lyricsScroll.innerHTML = '';
             const el = document.createElement('div');
             el.className = 'lyric-line active';
@@ -575,26 +612,44 @@ class UIManager {
             el.style.visibility = 'visible';
             this.els.lyricsScroll.appendChild(el);
             this.lyricElements = [];
+            if (toggleContainer) toggleContainer.style.display = 'none';
             return;
         }
 
-        // 渲染歌词行（使用 fragment 优化）
+        // Render lyric lines with sub-text
         const fragment = document.createDocumentFragment();
-        this.currentLyrics.forEach((line, i) => {
+        mainLines.forEach((line, i) => {
             const el = document.createElement('div');
             el.className = 'lyric-line';
             el.dataset.time = line.time;
             el.dataset.index = i;
-            el.textContent = line.text;
+
+            // Main text
+            const mainSpan = document.createElement('span');
+            mainSpan.className = 'lyric-main';
+            mainSpan.textContent = line.text;
+            el.appendChild(mainSpan);
+
+            // Sub text (trans or roma)
+            const subSpan = document.createElement('div');
+            subSpan.className = 'lyric-sub';
+            // Get matching sub-text by time
+            const transText = this.transMap.get(line.time) || '';
+            const romaText = this.romaMap.get(line.time) || '';
+            subSpan.dataset.trans = transText;
+            subSpan.dataset.roma = romaText;
+            subSpan.textContent = this.subTextType === 'trans' ? transText : romaText;
+            el.appendChild(subSpan);
+
             fragment.appendChild(el);
         });
 
         this.els.lyricsScroll.innerHTML = '';
         this.els.lyricsScroll.appendChild(fragment);
 
-        // 缓存 DOM 元素
+        // Cache DOM elements
         this.lyricElements = Array.from(this.els.lyricsScroll.querySelectorAll('.lyric-line'));
-        this.lineRenderIndices = null; // 重置每行位置状态
+        this.lineRenderIndices = null;
 
         this.lastHighlightIdx = -1;
         this.targetRenderIndex = 0;
@@ -1558,10 +1613,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.next();
     };
 
+    // Lyrics toggle button
+    document.getElementById('lyrics-toggle-btn').onclick = () => {
+        const toggleBtn = document.getElementById('lyrics-toggle-btn');
+        const toggleLabel = document.getElementById('lyrics-toggle-label');
+        const subElements = document.querySelectorAll('.lyric-sub');
+
+        ui.showSubText = !ui.showSubText;
+        toggleBtn.classList.toggle('active', ui.showSubText);
+
+        // Toggle all lyric lines
+        document.querySelectorAll('.lyric-line').forEach(el => {
+            el.classList.toggle('show-sub', ui.showSubText);
+        });
+
+        // Cycle through modes: off -> trans -> roma -> off (if both available)
+        if (ui.showSubText && ui.transMap?.size > 0 && ui.romaMap?.size > 0) {
+            // If turning on, check if we should switch type
+            if (ui.subTextType === 'trans') {
+                toggleLabel.textContent = '译';
+            } else {
+                toggleLabel.textContent = '音';
+            }
+        }
+    };
+
+    // Double click toggle to switch between trans/roma
+    document.getElementById('lyrics-toggle-btn').ondblclick = () => {
+        const toggleLabel = document.getElementById('lyrics-toggle-label');
+        const hasTrans = ui.transMap?.size > 0;
+        const hasRoma = ui.romaMap?.size > 0;
+
+        if (hasTrans && hasRoma) {
+            // Switch type
+            ui.subTextType = ui.subTextType === 'trans' ? 'roma' : 'trans';
+            toggleLabel.textContent = ui.subTextType === 'trans' ? '译' : '音';
+
+            // Update sub-text content
+            document.querySelectorAll('.lyric-sub').forEach(el => {
+                el.textContent = ui.subTextType === 'trans' ? el.dataset.trans : el.dataset.roma;
+            });
+        }
+    };
+
     // 歌词点击跳转
     ui.els.lyricsScroll.onclick = (e) => {
-        if (e.target.classList.contains('lyric-line')) {
-            const time = parseFloat(e.target.dataset.time);
+        const lyricLine = e.target.closest('.lyric-line');
+        if (lyricLine) {
+            const time = parseFloat(lyricLine.dataset.time);
             if (!isNaN(time)) {
                 player.seek(time);
                 ui.userScrolling = false; // 点击歌词后恢复自动滚动

@@ -1035,6 +1035,61 @@ body.playing .bg-layer {
     letter-spacing: 2px;
 }
 
+/* Lyrics Toggle Button */
+.lyrics-toggle-container {
+    position: absolute;
+    bottom: 80px;
+    right: 40px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.immersive-player:hover .lyrics-toggle-container {
+    opacity: 1;
+}
+
+.lyrics-toggle-btn {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.lyrics-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.lyrics-toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+/* Lyric Sub-text (trans/roma) */
+.lyric-sub {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 4px;
+    display: none;
+}
+
+.lyric-line.show-sub .lyric-sub {
+    display: block;
+}
+
 .immersive-controls {
     padding: 24px 40px 40px;
     flex-shrink: 0;

@@ -14,14 +14,14 @@ import { apiRequest } from './request.js';
  * @returns {Promise<Object>} - { lyric, trans, roma }
  */
 export async function getLyric(value, options = {}) {
-    const { trans = true, roma = false } = options;
+    const { qrc = true, trans = true, roma = true } = options;
 
     const params = {
         crypt: 1, // Enable crypt
         ct: 11,
         cv: 13020508,
         lrc_t: 0,
-        qrc: 0,
+        qrc: qrc ? 1 : 0,
         qrc_t: 0,
         roma: roma ? 1 : 0,
         roma_t: 0,

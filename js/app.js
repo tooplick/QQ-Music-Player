@@ -300,6 +300,7 @@ class UIManager {
 
         // 缓存 DOM 元素
         this.lyricElements = Array.from(this.els.lyricsScroll.querySelectorAll('.lyric-line'));
+        this.lineRenderIndices = null; // 重置每行位置状态
 
         this.lastHighlightIdx = -1;
         this.targetRenderIndex = 0;
@@ -395,65 +396,59 @@ class UIManager {
     renderFrame() {
         if (!this.lyricElements || this.lyricElements.length === 0) return;
 
-        // 1. 驱动源缓冲
         if (!this.userScrolling) {
             const diff = this.targetRenderIndex - this.currentRenderIndex;
             if (Math.abs(diff) > 0.001) {
-                this.currentRenderIndex += diff * 0.08; // 稍微调低主驱动速度，给后续弹性留余地
+                this.currentRenderIndex += diff * 0.1;
             } else {
                 this.currentRenderIndex = this.targetRenderIndex;
             }
         }
 
+        // 初始化每行的独立位置状态
+        if (!this.lineRenderIndices || this.lineRenderIndices.length !== this.lyricElements.length) {
+            this.lineRenderIndices = new Array(this.lyricElements.length).fill(this.currentRenderIndex);
+        }
+
         const angleStep = this.currentAngleStep || 6;
         const bias = -1;
         const visibleRange = 25;
+        const centerIndex = Math.floor(this.currentRenderIndex);
 
         for (let i = 0; i < this.lyricElements.length; i++) {
-            const el = this.lyricElements[i];
-            const targetOffset = i - this.currentRenderIndex + bias;
+            // 目标位置：追随全局焦点
+            const targetPos = this.currentRenderIndex;
+            let currentPos = this.lineRenderIndices[i];
 
-            // 可视范围优化
-            if (Math.abs(targetOffset) > visibleRange) {
-                if (el.style.visibility !== 'hidden') {
-                    el.style.visibility = 'hidden';
-                }
-                el._currentRotation = undefined; // 重置状态
-                continue;
-            }
+            // 计算视差滞后系数
+            const visualOffset = i - targetPos;
 
-            const targetAngle = targetOffset * angleStep;
+            // 关键逻辑：顶部(offset<0)响应快，底部(offset>0)响应慢
+            let k = 0.12 - visualOffset * 0.005;
+            k = Math.max(0.04, Math.min(0.2, k)); // 限制范围
 
-            // 初始化状态
-            if (el._currentRotation === undefined) {
-                el._currentRotation = targetAngle;
-            }
-
-            // 计算滞后系数：距离越远，系数越小(响应越慢)
-            const distance = Math.abs(targetOffset);
-            let lagFactor = Math.max(0.04, 0.2 - distance * 0.01);
-            if (this.userScrolling) {
-                lagFactor = Math.max(0.1, 0.4 - distance * 0.01);
-            }
-
-            // 弹性更新
-            const angleDiff = targetAngle - el._currentRotation;
-            if (Math.abs(angleDiff) > 0.01) {
-                el._currentRotation += angleDiff * lagFactor;
+            // 插值更新
+            const diff = targetPos - currentPos;
+            if (Math.abs(diff) > 0.001) {
+                currentPos += diff * k;
             } else {
-                el._currentRotation = targetAngle;
+                currentPos = targetPos;
             }
+            this.lineRenderIndices[i] = currentPos;
 
-            const currentAngle = el._currentRotation;
-            // 透明度基于视觉位置 - 增强连带感
-            const visualOffset = currentAngle / angleStep;
-            const opacity = Math.max(0, 1 - Math.abs(visualOffset) * 0.2);
-
-            el.style.transform = `rotate(${currentAngle}deg)`;
-            el.style.opacity = opacity;
-
-            if (el.style.visibility !== 'visible') {
-                el.style.visibility = 'visible';
+            // 使用该行独立的位置计算最终 offset
+            const offset = i - currentPos + bias;
+            if (Math.abs(offset) < visibleRange) {
+                const el = this.lyricElements[i];
+                const angle = offset * angleStep;
+                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
+                el.style.transform = `rotate(${angle}deg)`;
+                el.style.opacity = opacity;
+                if (el.style.visibility !== 'visible') el.style.visibility = 'visible';
+            } else {
+                if (this.lyricElements[i].style.visibility !== 'hidden') {
+                    this.lyricElements[i].style.visibility = 'hidden';
+                }
             }
         }
     }

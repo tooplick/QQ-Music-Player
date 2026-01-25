@@ -1038,14 +1038,18 @@ body.playing .bg-layer {
 /* Lyrics Toggle Button */
 .lyrics-toggle-container {
     position: absolute;
-    bottom: 80px;
-    right: 40px;
+    bottom: 60px;
+    right: 20px;
     z-index: 100;
     opacity: 0;
     transition: opacity 0.3s ease;
+    padding: 30px;
+    /* Larger hover area */
+    margin: -30px;
+    /* Compensate for padding */
 }
 
-.immersive-player:hover .lyrics-toggle-container {
+.lyrics-toggle-container:hover {
     opacity: 1;
 }
 

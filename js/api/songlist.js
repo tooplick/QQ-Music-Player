@@ -12,13 +12,11 @@ import { apiRequest } from './request.js';
 export async function getSongListDetail(disstid) {
     const params = {
         disstid: Number(disstid),
-        dirid: 0,
-        tag: 1,
-        cls: 1
+        song_num: 150
     };
 
     const data = await apiRequest(
-        'music.srf.diss_info.DisstsServer',
+        'music.srfDissInfo.DissInfo',
         'CgiGetDiss',
         params
     );

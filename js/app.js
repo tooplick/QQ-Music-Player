@@ -1685,8 +1685,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('lyrics-toggle-btn').onclick = () => {
         const toggleBtn = document.getElementById('lyrics-toggle-btn');
         const toggleLabel = document.getElementById('lyrics-toggle-label');
-        const hasTrans = ui.transMap?.size > 0;
-        const hasRoma = ui.romaMap?.size > 0;
+        const hasTrans = ui.transLines?.length > 0;
+        const hasRoma = ui.romaLines?.length > 0;
 
         // Determine current state and next state
         // States: 'off' -> 'trans' -> 'roma' -> 'off' (skip unavailable)

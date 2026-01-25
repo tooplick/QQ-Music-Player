@@ -426,10 +426,10 @@ class UIManager {
             // 关键逻辑：加强版果冻效果
             // 顶部(offset<0)响应更快，底部(offset>0)拖尾更明显
             // 系数从 0.005 增加到 0.008，拉大差异
-            let k = 0.12 - visualOffset * 0.008;
+            let k = 0.15 - visualOffset * 0.015;
 
             // 降低下限到 0.02 (非常拖拽)，提高上限到 0.3 (非常灵敏)
-            k = Math.max(0.02, Math.min(0.3, k));
+            k = Math.max(0.008, Math.min(0.5, k));
 
             // 插值更新
             const diff = targetPos - currentPos;

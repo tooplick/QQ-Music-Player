@@ -239,34 +239,19 @@
                 <button class="modal-close" id="import-modal-close"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <div class="import-tabs">
-                    <button class="tab-btn active" data-tab="single">单歌单ID</button>
-                    <button class="tab-btn" data-tab="user">用户QQ号</button>
-                </div>
-
-                <!-- 单歌单导入 -->
-                <div class="tab-content active" id="tab-single">
-                    <div class="input-group">
-                        <input type="number" id="import-id-input" placeholder="请输入QQ音乐歌单ID">
-                        <button class="primary-btn" id="import-single-confirm">导入</button>
-                    </div>
-                </div>
-
                 <!-- 用户批量导入 -->
-                <div class="tab-content" id="tab-user">
-                    <div class="input-group">
-                        <input type="number" id="import-uid-input" placeholder="请输入用户QQ号">
-                        <button class="primary-btn" id="fetch-user-playlists">获取歌单</button>
-                    </div>
-                    <div class="user-playlist-list" id="import-list-container">
-                        <!-- 动态列表 -->
-                        <div class="empty-hint">请输入QQ号并点击获取</div>
-                    </div>
-                    <div class="modal-actions" style="margin-top: 10px; justify-content: flex-end; display: none;"
-                        id="bulk-import-actions">
-                        <button class="primary-btn" id="import-selected-confirm">导入选中 (<span
-                                id="selected-count">0</span>)</button>
-                    </div>
+                <div class="input-group">
+                    <input type="number" id="import-uid-input" placeholder="请输入用户QQ号">
+                    <button class="primary-btn" id="fetch-user-playlists">获取歌单</button>
+                </div>
+                <div class="user-playlist-list" id="import-list-container">
+                    <!-- 动态列表 -->
+                    <div class="empty-hint">请输入QQ号并点击获取</div>
+                </div>
+                <div class="modal-actions" style="margin-top: 10px; justify-content: flex-end; display: none;"
+                    id="bulk-import-actions">
+                    <button class="primary-btn" id="import-selected-confirm">导入选中 (<span
+                            id="selected-count">0</span>)</button>
                 </div>
             </div>
         </div>

@@ -28,9 +28,9 @@ export async function getSongListDetail(disstid) {
     );
 
     // Normalize result
-    if (data && data.dirinfo && data.songlist) {
+    if (data && data.songlist) {
         return {
-            info: data.dirinfo,
+            info: data.dirinfo || {},
             songs: data.songlist
         };
     }

@@ -112,22 +112,35 @@ class SavedPlaylistManager {
         return this.importPlaylists([disstid]);
     }
 
-    async importPlaylists(disstids) {
-        if (!disstids || disstids.length === 0) return;
+    async importPlaylists(playlistsInfo) {
+        if (!playlistsInfo || playlistsInfo.length === 0) return;
 
         this.ui.showLoading(true);
         let successCount = 0;
         let failCount = 0;
 
-        for (const id of disstids) {
+        for (const item of playlistsInfo) {
+            // item can be ID (string/number) or Object {id, name, cover}
+            let id, name, cover;
+
+            if (typeof item === 'object') {
+                id = item.id || item.tid || item.disstid;
+                name = item.name || item.dirName || '未命名歌单';
+                cover = item.cover || item.dirPic || item.pic || '';
+            } else {
+                id = item;
+                name = null;
+                cover = null;
+            }
+
             try {
-                this.ui.notify(`正在导入: ${id}`, 'info');
+                this.ui.notify(`正在导入: ${name || id}`, 'info');
                 const data = await getSongListDetail(id);
 
                 const playlist = {
                     id: data.info.disstid || id,
-                    name: data.info.dissname || 'Imported Playlist',
-                    cover: data.info.logo || '',
+                    name: name || data.info.dissname || 'Imported Playlist',
+                    cover: cover || data.info.logo || '',
                     songs: data.songs.map(s => this.normalizeSong(s)),
                     count: data.songs.length,
                     createTime: Date.now()
@@ -1317,28 +1330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target === modal) modal.classList.remove('active');
     };
 
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-        };
-    });
 
-    // Single Import
-    document.getElementById('import-single-confirm').onclick = async () => {
-        const input = document.getElementById('import-id-input');
-        const id = input.value.trim();
-        if (id) {
-            const success = await savedPlaylistManager.importPlaylist(id);
-            if (success) {
-                input.value = '';
-                modal.classList.remove('active');
-            }
-        }
-    };
+
+
 
     // Bulk Import Logic
     document.getElementById('fetch-user-playlists').onclick = async () => {
@@ -1352,7 +1346,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i><span>获取中...</span></div>';
 
         try {
-            const playlists = await getUserSongLists(uin);
+            let playlists = await getUserSongLists(uin);
+
+            // Filter out "I Like" playlist (dirId 201)
+            playlists = playlists.filter(p => p.dirId !== 201);
 
             if (playlists.length === 0) {
                 container.innerHTML = '<div class="empty-hint">该用户没有公开的歌单</div>';
@@ -1362,11 +1359,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             container.innerHTML = '';
 
+            // Store globally for lookup
+            window.currentImportList = playlists;
+
             // Render list
-            playlists.forEach(p => {
+            playlists.forEach((p, index) => {
                 const div = document.createElement('div');
                 div.className = 'select-item';
-                div.dataset.tid = p.tid || p.dirId || p.disstid;
+                div.dataset.index = index; // Use index to lookup
                 const cover = p.cover || p.dirPic || p.pic || 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
 
                 div.innerHTML = `
@@ -1401,10 +1401,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('import-selected-confirm').onclick = async () => {
         const selected = document.querySelectorAll('.select-item.selected');
-        const ids = Array.from(selected).map(el => el.dataset.tid);
 
-        if (ids.length > 0) {
-            const success = await savedPlaylistManager.importPlaylists(ids);
+        const selectedPlaylists = Array.from(selected).map(el => {
+            const index = parseInt(el.dataset.index);
+            return window.currentImportList[index];
+        });
+
+        if (selectedPlaylists.length > 0) {
+            const success = await savedPlaylistManager.importPlaylists(selectedPlaylists);
             if (success) {
                 modal.classList.remove('active');
                 // Reset Selection

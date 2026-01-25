@@ -226,6 +226,7 @@ class UIManager {
             // Pages
             searchPage: document.getElementById('search-page'),
             playlistPage: document.getElementById('playlist-page'),
+            queuePage: document.getElementById('queue-page'),
             historyPage: document.getElementById('history-page'),
 
             // Search
@@ -293,7 +294,12 @@ class UIManager {
         // Trigger render updates if needed
         if (pageName === 'playlist') {
             window.savedPlaylistManager.render();
-            // Queue is auto-rendered on change, but maybe good to re-render?
+        } else if (pageName === 'queue') {
+            // Queue page: ensure scroll to active
+            setTimeout(() => {
+                const active = this.els.playlistList.querySelector('.active');
+                if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }, 100);
         } else if (pageName === 'history') {
             window.historyManager.render();
         }
@@ -891,7 +897,7 @@ class PlayerManager {
         this.ui.renderPlaylist(this.queue, this.currentIndex);
         this.playFromQueue(0);
         this.ui.notify(`已播放歌单，共 ${newQueue.length} 首`);
-        this.ui.switchPage('playlist');
+        this.ui.switchPage('queue');
     }
 
     playFromQueue(index) {

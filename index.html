@@ -54,6 +54,10 @@
                     <i class="fas fa-list-ul"></i>
                     <span>歌单</span>
                 </button>
+                <button class="nav-item" data-page="queue">
+                    <i class="fas fa-bars-staggered"></i>
+                    <span>列表</span>
+                </button>
                 <button class="nav-item" data-page="history">
                     <i class="fas fa-history"></i>
                     <span>历史</span>
@@ -108,25 +112,25 @@
                 </div>
 
                 <div class="playlist-section">
-                    <div class="section-title">收藏歌单</div>
                     <div class="saved-playlists" id="saved-playlists">
                         <!-- 动态生成 -->
-                        <div class="empty-hint">暂无收藏歌单</div>
+                        <div class="empty-hint">暂无歌单</div>
                     </div>
                 </div>
+            </section>
 
-                <div class="playlist-section queue-section">
-                    <div class="section-title">
-                        <span>当前播放</span>
-                        <button id="clear-queue-btn" class="clear-btn" title="清空列表">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                    <div class="playlist-content" id="playlist-list">
-                        <!-- 动态生成 -->
-                        <div class="empty-state">
-                            <p>列表为空</p>
-                        </div>
+            <!-- 播放队列页 -->
+            <section class="page queue-page" id="queue-page">
+                <div class="page-header">
+                    <h1>正在播放</h1>
+                    <button id="clear-queue-btn" class="header-action" title="清空列表">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div class="playlist-content" id="playlist-list">
+                    <!-- 动态生成 -->
+                    <div class="empty-state">
+                        <p>列表为空</p>
                     </div>
                 </div>
             </section>

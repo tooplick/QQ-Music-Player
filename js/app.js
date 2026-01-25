@@ -204,9 +204,7 @@ class SavedPlaylistManager {
 
             el.onclick = (e) => {
                 if (e.target.closest('.delete-btn')) return;
-                if (confirm(`播放歌单 "${p.name}"?`)) {
-                    window.player.replaceQueue(p.songs);
-                }
+                window.ui.showPlaylistDetail(p);
             };
 
             el.querySelector('.delete-btn').onclick = (e) => {
@@ -246,6 +244,7 @@ class UIManager {
             searchPage: document.getElementById('search-page'),
             playlistPage: document.getElementById('playlist-page'),
             queuePage: document.getElementById('queue-page'),
+            playlistDetailPage: document.getElementById('playlist-detail-page'),
             historyPage: document.getElementById('history-page'),
 
             // Search
@@ -601,6 +600,60 @@ class UIManager {
             this.renderLoopId = requestAnimationFrame(loop);
         };
         this.renderLoopId = requestAnimationFrame(loop);
+    }
+
+    // Playlist Detail View
+    showPlaylistDetail(playlist) {
+        if (!playlist) return;
+
+        // Populate header
+        this.els.detailTitle.textContent = playlist.name;
+        this.els.detailCount.textContent = `${playlist.count}首`;
+        this.els.detailCover.src = playlist.cover;
+        this.els.detailCover.onerror = () => {
+            this.els.detailCover.src = 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
+        };
+
+        // Play All Button
+        this.els.detailPlayAll.onclick = () => {
+            window.player.replaceQueue(playlist.songs);
+        };
+
+        // Back Button
+        this.els.detailBackBtn.onclick = () => {
+            this.switchPage('playlist');
+        };
+
+        // Render Song List
+        this.els.detailList.innerHTML = '';
+        if (!playlist.songs || playlist.songs.length === 0) {
+            this.els.detailList.innerHTML = '<div class="empty-state"><p>暂无歌曲</p></div>';
+        } else {
+            const fragment = document.createDocumentFragment();
+            playlist.songs.forEach((song, i) => {
+                const el = document.createElement('div');
+                el.className = 'song-item';
+                el.innerHTML = `
+                    <div class="song-index">${i + 1}</div>
+                    <div class="song-info">
+                        <div class="song-title">${song.name}</div>
+                        <div class="song-artist">${song.singers}</div>
+                    </div>
+                 `;
+
+                el.onclick = () => {
+                    // Play this song, but queue remains "playlist" context? 
+                    // Usually user expects "Play All" context starting here.
+                    // Let's replace queue with this playlist and play index i
+                    window.player.replaceQueue(playlist.songs);
+                    window.player.playFromQueue(i);
+                };
+                fragment.appendChild(el);
+            });
+            this.els.detailList.appendChild(fragment);
+        }
+
+        this.switchPage('playlist-detail');
     }
 
     stopRenderLoop() {
@@ -1317,28 +1370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target === modal) modal.classList.remove('active');
     };
 
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-        };
-    });
 
-    // Single Import
-    document.getElementById('import-single-confirm').onclick = async () => {
-        const input = document.getElementById('import-id-input');
-        const id = input.value.trim();
-        if (id) {
-            const success = await savedPlaylistManager.importPlaylist(id);
-            if (success) {
-                input.value = '';
-                modal.classList.remove('active');
-            }
-        }
-    };
 
     // Bulk Import Logic
     document.getElementById('fetch-user-playlists').onclick = async () => {

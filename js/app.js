@@ -301,7 +301,6 @@ class UIManager {
         // 缓存 DOM 元素
         this.lyricElements = Array.from(this.els.lyricsScroll.querySelectorAll('.lyric-line'));
         this.lineRenderIndices = null; // 重置每行位置状态
-        this.lineVelocities = null;    // 重置速度状态
 
         this.lastHighlightIdx = -1;
         this.targetRenderIndex = 0;
@@ -409,40 +408,39 @@ class UIManager {
         // 初始化每行的独立位置状态
         if (!this.lineRenderIndices || this.lineRenderIndices.length !== this.lyricElements.length) {
             this.lineRenderIndices = new Array(this.lyricElements.length).fill(this.currentRenderIndex);
-            this.lineVelocities = new Float32Array(this.lyricElements.length).fill(0);
         }
 
         const angleStep = this.currentAngleStep || 6;
         const bias = -1;
         const visibleRange = 25;
+        const centerIndex = Math.floor(this.currentRenderIndex);
 
-        // 2. 渲染循环：物理弹簧模型 (Spring Physics)
         for (let i = 0; i < this.lyricElements.length; i++) {
+            // 目标位置：追随全局焦点
             const targetPos = this.currentRenderIndex;
             let currentPos = this.lineRenderIndices[i];
-            let velocity = this.lineVelocities[i];
 
+            // 计算视差滞后系数
             const visualOffset = i - targetPos;
 
-            // 弹簧参数设置：
-            // Tension (张力/刚度): 决定回归目标的速度。顶部应极大(0.8)，底部极小(0.01)
-            // Friction (摩擦力): 决定震荡衰减。0.8 ~ 0.9 是比较舒适的区间
+            // 关键逻辑：加强版果冻效果
+            // 顶部(offset<0)响应更快，底部(offset>0)拖尾更明显
+            // 系数从 0.005 增加到 0.008，拉大差异
+            let k = 0.20 - visualOffset * 0.03;
 
-            let tension = 0.5 - visualOffset * 0.05;
-            tension = Math.max(0.005, Math.min(0.9, tension));
+            // 降低下限到 0.02 (非常拖拽)，提高上限到 0.3 (非常灵敏)
+            k = Math.max(0.002, Math.min(0.8, k));
 
-            const friction = 0.82; // 略微的阻尼，保持弹晃感
-
-            // 物理计算
-            const force = (targetPos - currentPos) * tension;
-            velocity = velocity * friction + force;
-            currentPos += velocity;
-
-            // 存储状态
-            this.lineVelocities[i] = velocity;
+            // 插值更新
+            const diff = targetPos - currentPos;
+            if (Math.abs(diff) > 0.001) {
+                currentPos += diff * k;
+            } else {
+                currentPos = targetPos;
+            }
             this.lineRenderIndices[i] = currentPos;
 
-            // 渲染
+            // 使用该行独立的位置计算最终 offset
             const offset = i - currentPos + bias;
             if (Math.abs(offset) < visibleRange) {
                 const el = this.lyricElements[i];

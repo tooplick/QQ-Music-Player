@@ -395,10 +395,11 @@ class UIManager {
     renderFrame() {
         if (!this.lyricElements || this.lyricElements.length === 0) return;
 
+        // 1. 驱动源缓冲
         if (!this.userScrolling) {
             const diff = this.targetRenderIndex - this.currentRenderIndex;
             if (Math.abs(diff) > 0.001) {
-                this.currentRenderIndex += diff * 0.1;
+                this.currentRenderIndex += diff * 0.08; // 稍微调低主驱动速度，给后续弹性留余地
             } else {
                 this.currentRenderIndex = this.targetRenderIndex;
             }
@@ -407,21 +408,52 @@ class UIManager {
         const angleStep = this.currentAngleStep || 6;
         const bias = -1;
         const visibleRange = 25;
-        const centerIndex = Math.floor(this.currentRenderIndex);
 
         for (let i = 0; i < this.lyricElements.length; i++) {
-            const offset = i - this.currentRenderIndex + bias;
-            if (Math.abs(offset) < visibleRange) {
-                const el = this.lyricElements[i];
-                const angle = offset * angleStep;
-                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
-                el.style.transform = `rotate(${angle}deg)`;
-                el.style.opacity = opacity;
-                if (el.style.visibility !== 'visible') el.style.visibility = 'visible';
-            } else {
-                if (this.lyricElements[i].style.visibility !== 'hidden') {
-                    this.lyricElements[i].style.visibility = 'hidden';
+            const el = this.lyricElements[i];
+            const targetOffset = i - this.currentRenderIndex + bias;
+
+            // 可视范围优化
+            if (Math.abs(targetOffset) > visibleRange) {
+                if (el.style.visibility !== 'hidden') {
+                    el.style.visibility = 'hidden';
                 }
+                el._currentRotation = undefined; // 重置状态
+                continue;
+            }
+
+            const targetAngle = targetOffset * angleStep;
+
+            // 初始化状态
+            if (el._currentRotation === undefined) {
+                el._currentRotation = targetAngle;
+            }
+
+            // 计算滞后系数：距离越远，系数越小(响应越慢)
+            const distance = Math.abs(targetOffset);
+            let lagFactor = Math.max(0.04, 0.2 - distance * 0.01);
+            if (this.userScrolling) {
+                lagFactor = Math.max(0.1, 0.4 - distance * 0.01);
+            }
+
+            // 弹性更新
+            const angleDiff = targetAngle - el._currentRotation;
+            if (Math.abs(angleDiff) > 0.01) {
+                el._currentRotation += angleDiff * lagFactor;
+            } else {
+                el._currentRotation = targetAngle;
+            }
+
+            const currentAngle = el._currentRotation;
+            // 透明度基于视觉位置 - 增强连带感
+            const visualOffset = currentAngle / angleStep;
+            const opacity = Math.max(0, 1 - Math.abs(visualOffset) * 0.2);
+
+            el.style.transform = `rotate(${currentAngle}deg)`;
+            el.style.opacity = opacity;
+
+            if (el.style.visibility !== 'visible') {
+                el.style.visibility = 'visible';
             }
         }
     }
